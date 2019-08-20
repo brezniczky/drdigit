@@ -2,7 +2,9 @@ DrDigit
 =======
 
 DrDigit is a digit doctoring detection package at an early stage.
-If interested in contributing, please feel free to contact me.
+If interested in contributing, please feel free to contact me, e.g. by 
+commenting on the issue 
+["Contributors"](https://github.com/brezniczky/drdigit/issues/1).
 
 Requirements
 ------------
