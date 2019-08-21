@@ -6,7 +6,7 @@ from drdigit.digit_entropy_distribution import (
     prob_of_entr, get_entropy,
     _DEFAULT_PE_RANDOM_SEED, _DEFAULT_PE_ITERATIONS
 )
-from drdigit.scoring import prob_of_twins
+from drdigit.twin_digits import prob_of_twins
 from drdigit.digit_correlations import equality_prob_vector
 
 
