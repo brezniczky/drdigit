@@ -22,6 +22,7 @@ def _digit_noise_series(n: int) -> np.ndarray:
     return np.random.choice(range(10), n) - 4.5
 
 
+# TODO: generalize: min_n_wards -> min_group_len; min_votes -> min_value
 def get_feasible_groups(df: pd.DataFrame, min_n_wards: int, min_votes: int,
                         value_colname: str="Fidesz",
                         group_colname: str="Telepules",

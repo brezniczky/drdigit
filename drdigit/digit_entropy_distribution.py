@@ -5,6 +5,12 @@ import pandas as pd
 from joblib import Memory
 
 
+# TODO: doc/naming, n_wards -> n_digits
+# TODO: naming  diigt_entropy_distribution -> digit_entropy
+# TODO: avoid_inf ~ better termed avoid_zero unless already in log likelihood
+# TODO: oddmost -> most odd
+
+
 _DEFAULT_SEED = 1234
 _DEFAULT_ITERATIONS = 10000
 
@@ -20,7 +26,11 @@ mem = Memory("./.digit_entropy_distribution_cache", verbose=0)
 
 
 def get_entropy(x):
-    """ x should be a list-like of digits """
+    """
+    Get the entropy of a list-like sequence of digits.
+
+    :param x: Should be a list-like of digits.
+    """
     _, counts = np.unique(x, return_counts=True)
     counts = counts / sum(counts)
     # no need to pad for missing digits, terms with a zero coeff.
@@ -69,9 +79,17 @@ def get_cdf_fun(n_wards,
     """ Return a PMF of digit distribution entropy values, that is, F where
         F(y) = P(X <= y)
 
+        Meaning: the probability of the entropy of an n_ward long digit sequence
+        dropping at least as low as y (or lower).
+
         The entropy values considered are those returned by
-        scipy.stats.entropy() for the relative digit frequency
-        configuration. """
+        scipy.stats.entropy() for the relative digit frequency configuration.
+
+        The second, optional argument of the returned cdf of the signature
+        (y, avoid_inf=False) tells to avoid returning zero probabilities, and
+        instead return a (currently, upper) estimate on the probability that
+        goes undetected in the simulation.
+    """
     sample = generate_sample(n_wards, seed, iterations, quiet=quiet)
     values, counts = np.unique(sample, return_counts=True)
     total = sum(counts)
@@ -85,7 +103,7 @@ def get_cdf_fun(n_wards,
             return 0
         else:
             # give a probability that likely goes undetected
-            return 1 / total
+            return 1 / total   # TODO: not 100% about this one
 
     return cdf_fun
 
@@ -95,7 +113,18 @@ def prob_of_entr(n_wards, entr,
                  iterations=_DEFAULT_ITERATIONS,
                  avoid_inf=False,
                  quiet=False):
-    """ Probability of the entropy being this small. """
+    """ Probability of the entropy being this small, see get_cdf_fun() for more
+        info.
+
+        :param n_wards: number of digits to consider
+        :param entr: entropy experienced, see get_entropy().
+        :param seed: random seed to use in simulating the probability distrib.
+        :param iterations: number of MC iterations (=entropy samples to
+            generate).
+        :param avoid_inf: See get_cdf_fun() for info on this.
+        :param quiet: Whether or not to allow printing messages useful for
+            tracing what goes on, as simulations can take a good while.
+    """
     cdf = get_cdf_fun(n_wards, seed, iterations, quiet)
     return cdf(entr, avoid_inf=avoid_inf)
 
@@ -111,6 +140,25 @@ Relies on non-parametric CDFs generated above.
 def get_log_likelihood(digits, slice_limits, bottom_n,
                        seed, iterations, towns=None, return_probs=False,
                        avoid_inf=False, quiet=False):
+    """
+    Get the log likelihood of the "oddmost" digit groups, chosen by unlikeliness
+    as described by their entropy probability.
+
+    :param digits: Digits sequence. Groups should be formed of adjacent digits.
+    :param slice_limits: Digit group limits in a list of (start, end) pairs.
+    :param bottom_n: How many of the oddmost to examine.
+    :param seed: Random seed for reproducibility of the internal MC simulation.
+    :param iterations: Number of iterations for the internal MC simulation.
+    :param towns: Town names associated with the groups for great debug
+        messages.
+    :param return_probs: Whether to, beyond the overall log likelihood, return
+        the individual per group (town) probabilities.
+    :param avoid_inf: Pad zero simulated probabilities with a non-zero value
+        that the accuracy of the simulation would allow for. Helps avoiding
+        infinite total likelihoods.
+    :param quiet: Whether to suppress debug related messages.
+    :return: Log likelihood value.
+    """
     slices = [digits[a:b] for a, b in slice_limits]
     entropies = [get_entropy(s) for s in slices]
     probs = [prob_of_entr(len(s), e, seed, iterations,
@@ -132,7 +180,29 @@ def get_likelihood_cdf(slice_limits, bottom_n,
                        iterations=_DEFAULT_LL_ITERATIONS,  # voting simulation
                        pe_seed=_DEFAULT_PE_RANDOM_SEED,
                        pe_iterations=_DEFAULT_PE_ITERATIONS,
-                       quiet=False):  # entropy
+                       quiet=False):
+    """
+    Return a cdf dealing with multiple groups of digits of different sizes, like
+    a group of municipalities consisting of electoral wards, each ward being
+    associated with a last digit of a vote count.
+
+    The CDF returns the probability of the (base 10) digit entropies dropping as
+    low as experienced in the top n most odd groups, as measured by an overall
+    log likelihood formed from the individual groups' entropy probabilities.
+
+    :param slice_limits: Digit group limits in a list of (start, end) pairs.
+    :param bottom_n: How many of the oddmost to examine.
+    :param seed: Random seed for reproducibility of the internal MC simulation
+        of "long sequences" - sequences covering all digit groups.
+    :param iterations: Number of iterations for the internal MC simulation.
+    :param pe_seed: Seed for the per group size CDF's internal MC simulations.
+    :param pe_iterations: Number of iterations for the per group size CDF's
+        internal MC simulation.
+    :param quiet: Whether or not to allow printing messages useful for
+        tracing what goes on, as simulations can take a good while.
+    :return: The cdf function taking a single log likelihood value (this can be
+        obtained by calling get_log_likelihood()).
+    """
 
     sample = []
     # end of the last slice is the ...
@@ -188,9 +258,30 @@ def get_likelihood_cdf(slice_limits, bottom_n,
     return cdf
 
 
+"""
+    Return a cdf dealing with multiple groups of digits of different sizes, like
+    a group of municipalities consisting of electoral wards, each ward being
+    associated with a last digit of a vote count.
+"""
 class LogLikelihoodDigitGroupEntropyTest():
 
-    # TODO: align this is_quiet interpretation with the one from arguments.py
+    """
+    Return a test dealing with multiple groups of digits of different sizes, like
+    a group of municipalities consisting of electoral wards, each ward being
+    associated with a last digit of a vote count.
+
+    The CDF forming the crux of the test returns the probability of the (base
+    10) digit entropies dropping as low as experienced in the top n most odd
+    groups, as measured by an overall log likelihood formed as the sum of the
+    logs of the individual groups' entropy probabilities.
+
+    Practically, a test of a 10 base digit sequence covering multiple groups
+    which individually are considered to exhibit a consistent distortion of
+    uniformity of digit distributions, but where the distortions of the
+    individual digit groups may be inconsistent with the distortion of each
+    other. (Say that in a vote counting scenario, the favourite "padding"
+    number of one vote counter may be different from that of another.)
+    """
 
     @staticmethod
     def get_slice_limits(group_ids):
@@ -216,6 +307,24 @@ class LogLikelihoodDigitGroupEntropyTest():
                  pe_iterations=_DEFAULT_PE_ITERATIONS,
                  pe_seed=_DEFAULT_SEED,
                  quiet=False):
+        """
+        Initializes the instance to carry out the calculations (will be
+        performed lazily i.e. on demand, when accessing the properties).
+
+        :param digits: Digits sequence. Groups should be formed of adjacent
+            digits.
+        :param group_ids: Group id per digit (recommended to be but not
+            necessarily an integer value).
+        :param bottom_n: How many of the oddmost to examine.
+        :param ll_iterations: Overall simulation (digit sequences to calculate
+            per group probabilities for) iteration count.
+        :param ll_seed: Overall simulation random seed.
+        :param pe_iterations: Number of iterations for the per group size CDF's
+            internal MC simulation.
+        :param pe_seed: Seed for the per group size CDF's internal MC
+            simulations.
+        :param quiet: Whether to suppress debug related messages.
+        """
 
         # avoid index keys interfering with the intentions
         if type(digits) is pd.Series:
@@ -258,12 +367,14 @@ class LogLikelihoodDigitGroupEntropyTest():
 
     @property
     def likelihood(self):
+        """ Overall log likelihood of the digit sequence being tested. """
         if self._likelihood is None:
             self._init_likelihood_and_probs()
         return self._likelihood
 
     @property
     def cdf(self):
+        """ CDF function of the entropy log likelihood. """
 
         if self._cdf is None:
             self._cdf = get_likelihood_cdf(
@@ -276,10 +387,12 @@ class LogLikelihoodDigitGroupEntropyTest():
 
     @property
     def p(self):
+        """ Probabilty of the experienced overall log likelihood value. """
         return self.cdf(self.likelihood)
 
     @property
     def p_values(self):
+        """ Dictionary of per group entropy probabilities. """
         if self._p_values is None:
             self._init_likelihood_and_probs()
         return dict(

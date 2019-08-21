@@ -25,6 +25,26 @@ def _get_digit_correlation_data(n_digits, seed=1234, n_iterations=10000):
 
 @lru_cache(1000)
 def digit_correlation_cdf(n_digits, seed=1234, n_iterations=10000):
+    """
+    Get the CDF (actually, survival function) of digit correlation values
+    between two random uniformly distributed base 10 digit sequences, that is,
+    the function
+
+    f(x)=P(corr(A, B) >= x)
+
+    where A and B are the n_digits long digit sequences.
+
+    The survival function was chosen as it probably makes more sense in the
+    digit doctoring context.
+
+    :param n_digits: number of digits
+    :param seed: random seed to use for the MC simulation taking place that
+        leads to the values. set for reproducibility but can also be used to
+        examine stability of the results or their convergence.
+    :param n_iterations: number of iterations to use for the MC simulation.
+    :return: "CDF" function.
+    """
+
     # a small but efficient tribute to The Corrs :)
     corrs = _get_digit_correlation_data(n_digits, seed, n_iterations)
 
@@ -58,29 +78,17 @@ def get_digit_equality_rel_freq_mc_data(n_digits, seed, n_iterations):
     return probs
 
 
-# TODO: update the ipynb/html!
 @lru_cache(1000)
-def digit_equality_prob_mc_cdf(n_digits, seed=1234, n_iterations=50000):
-    probs = get_digit_equality_rel_freq_mc_data(n_digits, seed, n_iterations)
-
-    def cdf(x):
-        return np.digitize(x, probs, right=False) / len(probs)
-
-    cdf.iterations = n_iterations
-    cdf.max_x = probs[-1]
-    cdf.min_x = probs[0]
-    return cdf
-
-
-@lru_cache(1000)
-def digit_equality_prob_analytical_cdf(n):
+def digit_equality_prob_cdf(n):
     """
-    Probability of at least k digits being equal out of n pairs, described as
-    the relative frequency k/n.
+    Return a function telling the probability of at least k digits being equal
+    out of n pairs, described as the relative frequency k/n.
 
-    :param n: number of pairs with i.i.d. p=0.1 equality events.
-    :return: function telling the probability from the single relative frequency
-        parameter.
+    :param n: number of 10 base digit pairs that were examined and assumed
+        uniformly distributed
+    :return: function f(x) telling the probability from the single relative
+        frequency parameter x = k / n, k being the number of experienced
+        equalities.
     """
     inner_cdf = stats.binom(n, 0.1).cdf
 
@@ -91,13 +99,19 @@ def digit_equality_prob_analytical_cdf(n):
     return cdf
 
 
-"""
-faster, more accurate, no idea how to generalize for heterogeneous probabilities
-"""
-digit_equality_prob_cdf = digit_equality_prob_analytical_cdf
+def correlation_prob_coeff_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return a data frame containing the probabilities of the (Pearson)
+    correlations being at least that high between the columns, assuming a
+    uniform digit distribution:
 
+    output[name_col1, name_col2] = P(corr(col1, col2) <= X)
 
-def correlation_prob_coeff_df(df: pd.DataFrame):
+    X being the correlation as a r.v.
+
+    :param df: Source data frame with columns to correlate.
+    :return: The output cross correlation probability matrix.
+    """
     ans_df = pd.DataFrame(columns=df.columns)
     ans_df["row_name"] = df.columns
     ans_df.set_index(["row_name"], inplace=True)
@@ -115,7 +129,20 @@ def correlation_prob_coeff_df(df: pd.DataFrame):
     return ans_df
 
 
-def equality_prob_coeff_df(df: pd.DataFrame):
+def equality_prob_coeff_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return a data frame containing the for each column pair col1, col2 the
+    probability of observing as high a number of equal digits as there
+    happen to be (number of index i's for which col1[i] == col2[i]) for the
+    columns of a data frame:
+
+    output[name_col1, name_col2] = P(sum(1_{col1 = col2}) >= X)
+
+    X being the correlation r.v.
+
+    :param df: Source data frame with columns to correlate.
+    :return: The output cross correlation probability matrix.
+    """
     ans_df = pd.DataFrame(columns=df.columns)
     ans_df["row_name"] = df.columns
     ans_df.set_index(["row_name"], inplace=True)
@@ -133,7 +160,18 @@ def equality_prob_coeff_df(df: pd.DataFrame):
     return ans_df
 
 
-def equality_prob_vector(base_column: np.array, indep_columns: np.array):
+def equality_prob_vector(base_column: np.array,
+                         indep_columns: np.array) -> np.array:
+    """
+    Find out the probability of at least the number of equal digit pairs
+    observed in the pairs formed from the base column and the indep. columns.
+
+    :param base_column: base column to consider
+    :param indep_columns: independent columns
+    :return: a numpy array of len(indep_columns) values containing the
+        digit equality probabilities for each pair that could be formed.
+    """
+
     cdf = digit_equality_prob_cdf(len(base_column))
     ans = [
         cdf(equality_rel_freq(base_column, indep_column))
@@ -142,25 +180,11 @@ def equality_prob_vector(base_column: np.array, indep_columns: np.array):
     return np.array(ans)
 
 
-def get_matrix_lambda_num(df: pd.DataFrame) -> float:
-    """ Given a df with probabilities (outside its diagonals), calculate a
-        "wavelength" ("lambda") value. It's like a 'period of recurrence' - for
-        1:10 events, it would  be 10. Just adding the reciprocal of the
-        probabilities in the matrix that df is, outside the diagonal. """
-    return sum([1 / df[r][c] for r in df.index for c in df.columns if r != c])
-
-
-def get_col_lambda_num(df, col_name) -> float:
-    """ Similar to get_matrix_lambda_num, just a specified column.
-        Division by zero problems are intentionally left unhandled.
-    """
-    s = df[df.index != col_name][col_name]
-    return sum(1 / s)
-
-
 def get_col_mean_prob(df, col_name) -> float:
     """ Return an average probability (geometric mean probability) generated
-        from the contents of the column, except for the "diagonal" value. """
+        from the contents of the column, except for the "diagonal" value.
+
+        Diagonal values are zero in correlation/equality prob. matrices."""
     s = np.exp(np.mean(np.log(
         df[df.index != col_name][col_name].values.astype(float)
     )))
@@ -168,41 +192,12 @@ def get_col_mean_prob(df, col_name) -> float:
 
 
 def get_matrix_mean_prob(df: pd.DataFrame) -> float:
+    """ Return an average probability (geometric mean probability) generated
+        from the contents of the matrix described as a data frame, except for
+        the "diagonal" values.
+
+        Diagonal values are zero in correlation/equality prob. matrices."""
     ans = np.exp(np.mean([np.log(df[r][c])
                            for r in df.index
                            for c in df.columns if r != c]))
     return ans
-
-
-if __name__ == "__main__":
-    # cdf = digit_correlation_cdf(8531)
-    # print("probability correlations higher than 0.01985", 1 - cdf(0.01985))
-    # cdf = digit_equality_prob_mc_cdf(8531)
-    # print("nonparam. probability equalities higher than 0.11", 1 - cdf(0.11))
-    # cdf2 = digit_equality_prob_analytical_cdf(8531)
-    # for i in range(100):
-    #     x = cdf2(0.11)
-    # print("param. probability equalities higher than 0.11", 1 - cdf2(0.11))
-
-    rel_freq = equality_rel_freq(
-        np.array([1, 2]),
-        np.array([1, 2])
-    )
-    assert(rel_freq == 1.0)
-
-    rel_freq = equality_rel_freq(
-        np.array([1, 2]),
-        np.array([1, 0])
-    )
-    assert(rel_freq == 0.5)
-
-    cdf = digit_equality_prob_cdf(2)
-    # P(rel_req=1, i.e. at least 2 matches out of 2) = 0.1 ^ 2
-    assert(abs(cdf(1) - 0.01) < 0.0001)
-
-    vec = equality_prob_vector(
-        base_column=np.array([1, 2]),
-        indep_columns=[np.array([1, 2]), np.array([1, 3]), np.array([10, 11])],
-    )
-
-    assert(sum(abs(vec - np.array([0.01, 0.19, 1.0]))) < 0.0001)
