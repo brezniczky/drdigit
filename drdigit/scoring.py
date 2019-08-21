@@ -3,9 +3,10 @@ import numpy as np
 import pandas as pd
 from typing import List, Any
 from drdigit.digit_entropy_distribution import (
-    prob_of_entr, get_entropy, prob_of_twins,
+    prob_of_entr, get_entropy,
     _DEFAULT_PE_RANDOM_SEED, _DEFAULT_PE_ITERATIONS
 )
+from drdigit.scoring import prob_of_twins
 from drdigit.digit_correlations import equality_prob_vector
 
 

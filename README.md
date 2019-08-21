@@ -3,8 +3,8 @@ DrDigit
 
 DrDigit is a digit doctoring detection package at an early stage.
 Interested in contributing? Please feel free to contact me, e.g. by
-commenting on the issue
-["Contributors"](https://github.com/brezniczky/drdigit/issues/1).
+commenting on the issue "Contributors welcome!" at 
+https://github.com/brezniczky/drdigit/issues/1.
 
 Requirements
 ------------
@@ -43,7 +43,7 @@ Quick start
 
 DrDigit can be installed using pip:
 
-    $ pip install drdigit
+    $ pip install drdigit-brezniczky
 
 More to come ...
 
