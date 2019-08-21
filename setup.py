@@ -21,4 +21,13 @@ setuptools.setup(
         "Development Status :: 1 - Planning ",
         "Topic :: Scientific/Engineering"
     ],
+    install_requires=[
+        "joblib>=0.13.2",
+        "numpy>=1.17.0",
+        "pandas>=0.24.2",
+        "python-dateutil>=2.8.0",
+        "pytz>=2019.2",
+        "scipy>=1.3.1",
+        "six>=1.12.0",
+    ]
 )
