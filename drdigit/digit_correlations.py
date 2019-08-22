@@ -9,7 +9,8 @@ from joblib import Memory
 mem = Memory("./digit_correlations_cache", verbose=0)
 
 
-@mem.cache()
+# @mem.cache()
+@lru_cache()
 def _get_digit_correlation_data(n_digits, seed=1234, n_iterations=10000):
     corrs = []
     rnd.seed(seed)
@@ -62,7 +63,8 @@ def equality_rel_freq(a1: np.array, a2: np.array):
     return ans
 
 
-@mem.cache()
+# @mem.cache()
+@lru_cache()
 def get_digit_equality_rel_freq_mc_data(n_digits, seed, n_iterations):
     raise Exception("This needs updating! "
                     "See digit_equality_prob_analytical_cdf ...")

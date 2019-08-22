@@ -54,7 +54,8 @@ def get_entropy(x):
 # differences by the look
 
 
-@mem.cache()
+# @mem.cache()
+@lru_cache()
 def generate_sample(n_wards,
                     seed=_DEFAULT_SEED,
                     iterations=_DEFAULT_ITERATIONS,
