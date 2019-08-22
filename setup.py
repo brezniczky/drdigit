@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="drdigit-brezniczky",
-    version="0.0.3",
+    version="0.0.4",
     author="Janos Brezniczky",
     author_email="brezniczky@gmail.com",
     description="A digit doctoring detection package",
