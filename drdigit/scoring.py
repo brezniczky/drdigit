@@ -1,4 +1,3 @@
-from collections import OrderedDict
 import numpy as np
 import pandas as pd
 from typing import List, Any
@@ -46,13 +45,34 @@ def get_group_scores(group_ids: List[Any], digits: List[int],
                      overhearing_base_columns: List[List[int]]=[],
                      overhearing_indep_columns: List[List[int]]=[],
                      seed: int=_DEFAULT_PE_RANDOM_SEED,
-                     iterations: int=_DEFAULT_PE_ITERATIONS) -> pd.Series:
+                     iterations: int=_DEFAULT_PE_ITERATIONS,
+                     quiet: bool=False) -> pd.Series:
+    """
+    Generate a series of scores about the 10 base digit groups defined by the
+    parameters. The score is proportionate with probabilities of certain
+    properties of the individual digit groups conditional on uniform digit
+    distribution, for instance a score of 1 tells that the digit group looks
+    very ordinary in the examined respects.
 
+    :param group_ids: Array-like defining which group contains the digit at the
+        matching index in digits. E.g. this could be a municipality identifier.
+    :param digits: Digits of the groups to examine. It could be the last digit
+        of per ward election vote counts.
+    :param overhearing_base_columns: Columns with last digit distributions which
+        can be considered/should be uniform.
+    :param overhearing_indep_columns: Columns with last digits that should be
+        independent from the base columns.
+    :param seed: Random seed for MC simulations yielding CDFs.
+    :param iterations: Number of iterations for MC simulations.
+    :param quiet: Whether to suppress messages.
+    :return: The series of scores, indexed by the group IDs.
+    """
 
     # TODO: can add seeds instead of a shared seed
     def agg_prob_of_entr(x: List[int]):
         return prob_of_entr(len(x), get_entropy(x),
-                            seed=seed, iterations=iterations)
+                            seed=seed, iterations=iterations,
+                            quiet=quiet)
 
     df = pd.DataFrame(dict(group_id=group_ids, digit=digits))
     agg = df.groupby(["group_id"]).aggregate([agg_prob_of_entr, prob_of_twins])
