@@ -3,15 +3,10 @@ import pandas as pd
 import numpy.random as rnd
 from scipy import stats
 from functools import lru_cache
-from joblib import Memory
 
 
-mem = Memory("./digit_correlations_cache", verbose=0)
-
-
-# @mem.cache()
-@lru_cache()
-def _get_digit_correlation_data(n_digits, seed=1234, n_iterations=10000):
+def uncached_get_digit_correlation_data(n_digits, seed=1234,
+                                        n_iterations=10000):
     corrs = []
     rnd.seed(seed)
     for i in range(n_iterations):
@@ -24,12 +19,25 @@ def _get_digit_correlation_data(n_digits, seed=1234, n_iterations=10000):
     return corrs
 
 
+# failed to say lru_cache(..., 1000) - seems like as opposed to
+# joblib.Memory.cache(), it just doesn't work that way
+@lru_cache()
+def lru_cached_get_digit_correlation_data(*args, **kwargs):
+    return uncached_get_digit_correlation_data(*args, **kwargs)
+
+
+cached_get_digit_correlation_data = lru_cached_get_digit_correlation_data
+
+
 @lru_cache(1000)
 def digit_correlation_cdf(n_digits, seed=1234, n_iterations=10000):
     """
     Get the CDF (actually, survival function) of digit correlation values
     between two random uniformly distributed base 10 digit sequences, that is,
     the function
+
+    Remark: this is not really used anywhere, was an early attempt.
+    Can it still be useful later?
 
     f(x)=P(corr(A, B) >= x)
 
@@ -47,7 +55,7 @@ def digit_correlation_cdf(n_digits, seed=1234, n_iterations=10000):
     """
 
     # a small but efficient tribute to The Corrs :)
-    corrs = _get_digit_correlation_data(n_digits, seed, n_iterations)
+    corrs = cached_get_digit_correlation_data(n_digits, seed, n_iterations)
 
     def cdf(x):
         return np.digitize(x, corrs, right=False) / len(corrs)
@@ -61,23 +69,6 @@ def digit_correlation_cdf(n_digits, seed=1234, n_iterations=10000):
 def equality_rel_freq(a1: np.array, a2: np.array):
     ans = (a1 == a2).mean()
     return ans
-
-
-# @mem.cache()
-@lru_cache()
-def get_digit_equality_rel_freq_mc_data(n_digits, seed, n_iterations):
-    raise Exception("This needs updating! "
-                    "See digit_equality_prob_analytical_cdf ...")
-    probs = []
-    rnd.seed(seed)
-    for i in range(n_iterations):
-        digits_1 = rnd.choice(range(10), n_digits)
-        digits_2 = rnd.choice(range(10), n_digits)
-        act_rel_freq = (digits_1 == digits_2).mean()
-        probs.append(act_rel_freq)
-
-    probs = sorted(probs)
-    return probs
 
 
 @lru_cache(1000)
@@ -198,7 +189,8 @@ def get_matrix_mean_prob(df: pd.DataFrame) -> float:
         from the contents of the matrix described as a data frame, except for
         the "diagonal" values.
 
-        Diagonal values are zero in correlation/equality prob. matrices."""
+        Diagonal values are zero in correlation/equality prob. matrices.
+    """
     ans = np.exp(np.mean([np.log(df[r][c])
                            for r in df.index
                            for c in df.columns if r != c]))

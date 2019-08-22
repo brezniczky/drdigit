@@ -54,12 +54,10 @@ def get_entropy(x):
 # differences by the look
 
 
-# @mem.cache()
-@lru_cache()
-def generate_sample(n_wards,
-                    seed=_DEFAULT_SEED,
-                    iterations=_DEFAULT_ITERATIONS,
-                    quiet=False):
+def uncached_generate_sample(n_wards,
+                             seed=_DEFAULT_SEED,
+                             iterations=_DEFAULT_ITERATIONS,
+                             quiet=False):
     np.random.seed(seed)
     entrs = []
     for i in range(iterations):
@@ -70,6 +68,14 @@ def generate_sample(n_wards,
     if not quiet:
         print("cdf for %d was generated" % n_wards)
     return np.array(entrs)
+
+
+@lru_cache()
+def lru_cached_generate_sample(*args, **kwargs):
+    return uncached_generate_sample(*args, **kwargs)
+
+
+cached_generate_sample = lru_cached_generate_sample
 
 
 @lru_cache(1000)
@@ -91,7 +97,7 @@ def get_cdf_fun(n_wards,
         instead return a (currently, upper) estimate on the probability that
         goes undetected in the simulation.
     """
-    sample = generate_sample(n_wards, seed, iterations, quiet=quiet)
+    sample = cached_generate_sample(n_wards, seed, iterations, quiet=quiet)
     values, counts = np.unique(sample, return_counts=True)
     total = sum(counts)
     counts = np.cumsum(counts)
