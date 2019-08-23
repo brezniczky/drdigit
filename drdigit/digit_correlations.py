@@ -3,10 +3,11 @@ import pandas as pd
 import numpy.random as rnd
 from scipy import stats
 from functools import lru_cache
+from typing import Callable
 
 
-def uncached_get_digit_correlation_data(n_digits, seed=1234,
-                                        n_iterations=10000):
+def _uncached_get_digit_correlation_data(n_digits, seed=1234,
+                                         n_iterations=10000):
     corrs = []
     rnd.seed(seed)
     for i in range(n_iterations):
@@ -22,15 +23,16 @@ def uncached_get_digit_correlation_data(n_digits, seed=1234,
 # failed to say lru_cache(..., 1000) - seems like as opposed to
 # joblib.Memory.cache(), it just doesn't work that way
 @lru_cache()
-def lru_cached_get_digit_correlation_data(*args, **kwargs):
-    return uncached_get_digit_correlation_data(*args, **kwargs)
+def _lru_cached_get_digit_correlation_data(*args, **kwargs):
+    return _uncached_get_digit_correlation_data(*args, **kwargs)
 
 
-cached_get_digit_correlation_data = lru_cached_get_digit_correlation_data
+_cached_get_digit_correlation_data = _lru_cached_get_digit_correlation_data
 
 
 @lru_cache(1000)
-def digit_correlation_cdf(n_digits, seed=1234, n_iterations=10000):
+def digit_correlation_cdf(n_digits: int, seed: int=1234,
+                          n_iterations: int=10000) -> Callable[[float], float]:
     """
     Get the CDF (actually, survival function) of digit correlation values
     between two random uniformly distributed base 10 digit sequences, that is,
@@ -55,9 +57,9 @@ def digit_correlation_cdf(n_digits, seed=1234, n_iterations=10000):
     """
 
     # a small but efficient tribute to The Corrs :)
-    corrs = cached_get_digit_correlation_data(n_digits, seed, n_iterations)
+    corrs = _cached_get_digit_correlation_data(n_digits, seed, n_iterations)
 
-    def cdf(x):
+    def cdf(x: float) -> float:
         return np.digitize(x, corrs, right=False) / len(corrs)
 
     cdf.iterations = n_iterations
@@ -66,13 +68,13 @@ def digit_correlation_cdf(n_digits, seed=1234, n_iterations=10000):
     return cdf
 
 
-def equality_rel_freq(a1: np.array, a2: np.array):
+def equality_rel_freq(a1: np.array, a2: np.array) -> float:
     ans = (a1 == a2).mean()
     return ans
 
 
 @lru_cache(1000)
-def digit_equality_prob_cdf(n):
+def digit_equality_prob_cdf(n: int) -> Callable[[float], float]:
     """
     Return a function telling the probability of at least k digits being equal
     out of n pairs, described as the relative frequency k/n.
@@ -85,7 +87,7 @@ def digit_equality_prob_cdf(n):
     """
     inner_cdf = stats.binom(n, 0.1).cdf
 
-    def cdf(rel_freq):
+    def cdf(rel_freq: float) -> float:
         # TODO: possibly do not operate on rel_freq... inaccurate values ~ waste
         return 1 - inner_cdf(int(round(rel_freq * n - 1)))
 
@@ -173,7 +175,7 @@ def equality_prob_vector(base_column: np.array,
     return np.array(ans)
 
 
-def get_col_mean_prob(df, col_name) -> float:
+def get_col_mean_prob(df: pd.DataFrame, col_name: str) -> float:
     """ Return an average probability (geometric mean probability) generated
         from the contents of the column, except for the "diagonal" value.
 

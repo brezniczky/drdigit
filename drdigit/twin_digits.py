@@ -1,8 +1,9 @@
 from scipy.stats import binom
 import numpy as np
+from typing import List
 
 
-def prob_of_twins(x):
+def prob_of_twins(x: List[int]) -> float:
     """ Return the probability of at least this many repeat pairs (adjacent
         digits being equal) in the given sequence of digits.
         In a sequence of 1, 1, 1, 2, 3, 3, 4 there will be 3 pairs considered.

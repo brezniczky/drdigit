@@ -3,6 +3,7 @@ import numpy as np
 from functools import lru_cache
 import pandas as pd
 from joblib import Memory
+from typing import List, Tuple, Callable, Optional, Dict, Any
 
 
 # TODO: doc/naming, n_wards -> n_digits
@@ -25,7 +26,7 @@ _DEFAULT_PE_ITERATIONS = 12345
 mem = Memory("./.digit_entropy_distribution_cache", verbose=0)
 
 
-def get_entropy(x):
+def get_entropy(x: List[int]) -> float:
     """
     Get the entropy of a list-like sequence of digits.
 
@@ -54,10 +55,10 @@ def get_entropy(x):
 # differences by the look
 
 
-def uncached_generate_sample(n_wards,
-                             seed=_DEFAULT_SEED,
-                             iterations=_DEFAULT_ITERATIONS,
-                             quiet=False):
+def _uncached_generate_sample(n_wards: int,
+                              seed: int=_DEFAULT_SEED,
+                              iterations: int=_DEFAULT_ITERATIONS,
+                              quiet: bool=False) -> np.ndarray:
     np.random.seed(seed)
     entrs = []
     for i in range(iterations):
@@ -71,18 +72,18 @@ def uncached_generate_sample(n_wards,
 
 
 @lru_cache()
-def lru_cached_generate_sample(*args, **kwargs):
-    return uncached_generate_sample(*args, **kwargs)
+def _lru_cached_generate_sample(*args, **kwargs):
+    return _uncached_generate_sample(*args, **kwargs)
 
 
-cached_generate_sample = lru_cached_generate_sample
+cached_generate_sample = _lru_cached_generate_sample
 
 
 @lru_cache(1000)
-def get_cdf_fun(n_wards,
-                seed=_DEFAULT_SEED,
-                iterations=_DEFAULT_ITERATIONS,
-                quiet=False):
+def get_cdf_fun(n_wards: int,
+                seed: int=_DEFAULT_SEED,
+                iterations: int=_DEFAULT_ITERATIONS,
+                quiet: bool=False) -> Callable[[float, Optional[bool]], float]:
     """ Return a PMF of digit distribution entropy values, that is, F where
         F(y) = P(X <= y)
 
@@ -115,11 +116,11 @@ def get_cdf_fun(n_wards,
     return cdf_fun
 
 
-def prob_of_entr(n_wards, entr,
-                 seed=_DEFAULT_SEED,
-                 iterations=_DEFAULT_ITERATIONS,
-                 avoid_inf=False,
-                 quiet=False):
+def prob_of_entr(n_wards: int, entr: float,
+                 seed: int=_DEFAULT_SEED,
+                 iterations: int=_DEFAULT_ITERATIONS,
+                 avoid_inf: bool=False,
+                 quiet: bool=False) -> float:
     """ Probability of the entropy being this small, see get_cdf_fun() for more
         info.
 
@@ -144,9 +145,10 @@ Uses simulations, slow.
 Relies on non-parametric CDFs generated above.
 """
 # TODO: towns argument should be generalized or municipalities
-def get_log_likelihood(digits, slice_limits, bottom_n,
-                       seed, iterations, towns=None, return_probs=False,
-                       avoid_inf=False, quiet=False):
+def get_log_likelihood(digits: List[int], slice_limits: List[Tuple[int, int]],
+                       bottom_n: int, seed: int, iterations: int,
+                       towns: List[str]=None, return_probs: bool=False,
+                       avoid_inf: bool=False, quiet: bool=False):
     """
     Get the log likelihood of the "oddmost" digit groups, chosen by unlikeliness
     as described by their entropy probability.
@@ -182,12 +184,12 @@ def get_log_likelihood(digits, slice_limits, bottom_n,
         return l, probs
 
 
-def get_likelihood_cdf(slice_limits, bottom_n,
-                       seed=_DEFAULT_LL_SEED,
-                       iterations=_DEFAULT_LL_ITERATIONS,  # voting simulation
-                       pe_seed=_DEFAULT_PE_RANDOM_SEED,
-                       pe_iterations=_DEFAULT_PE_ITERATIONS,
-                       quiet=False):
+def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
+                       seed: int=_DEFAULT_LL_SEED,
+                       iterations: int=_DEFAULT_LL_ITERATIONS,
+                       pe_seed: int=_DEFAULT_PE_RANDOM_SEED,
+                       pe_iterations: int=_DEFAULT_PE_ITERATIONS,
+                       quiet: bool=False) -> Callable[[float], float]:
     """
     Return a cdf dealing with multiple groups of digits of different sizes, like
     a group of municipalities consisting of electoral wards, each ward being
@@ -225,6 +227,7 @@ def get_likelihood_cdf(slice_limits, bottom_n,
     np.random.seed(seed)
     for i in range(min(iterations, 1)):
         digits = np.random.choice(range(10), n_settlements)
+        # so, sadly, this value is intentionally unused
         sim_likelihood = get_log_likelihood(digits, slice_limits,
                                             bottom_n, pe_seed, pe_iterations,
                                             quiet=quiet)
@@ -249,7 +252,7 @@ def get_likelihood_cdf(slice_limits, bottom_n,
     total = sum(counts)
     counts = np.cumsum(counts)
 
-    def cdf(l):
+    def cdf(l: float) -> float:
         """ CDF: P(L <= L_actual) """
         idx = np.digitize(l, values) - 1
         if idx >= 0:
@@ -265,22 +268,17 @@ def get_likelihood_cdf(slice_limits, bottom_n,
     return cdf
 
 
-"""
-    Return a cdf dealing with multiple groups of digits of different sizes, like
-    a group of municipalities consisting of electoral wards, each ward being
-    associated with a last digit of a vote count.
-"""
 class LogLikelihoodDigitGroupEntropyTest():
 
     """
-    Return a test dealing with multiple groups of digits of different sizes, like
-    a group of municipalities consisting of electoral wards, each ward being
-    associated with a last digit of a vote count.
+    Represents a test dealing with multiple groups of digits of different sizes,
+    like a group of municipalities consisting of electoral wards, each ward
+    being associated with a last digit of a vote count.
 
     The CDF forming the crux of the test returns the probability of the (base
     10) digit entropies dropping as low as experienced in the top n most odd
     groups, as measured by an overall log likelihood formed as the sum of the
-    logs of the individual groups' entropy probabilities.
+    logs of these individual groups' entropy probabilities.
 
     Practically, a test of a 10 base digit sequence covering multiple groups
     which individually are considered to exhibit a consistent distortion of
@@ -306,14 +304,14 @@ class LogLikelihoodDigitGroupEntropyTest():
         return list(zip(starts, ends))
 
     def __init__(self,
-                 digits, group_ids, bottom_n,
+                 digits: int, group_ids: List[Any], bottom_n: int,
                  # log likelihood probability calc. hyperparam.
-                 ll_iterations=_DEFAULT_LL_ITERATIONS,
-                 ll_seed=_DEFAULT_LL_SEED,
+                 ll_iterations: int=_DEFAULT_LL_ITERATIONS,
+                 ll_seed: int=_DEFAULT_LL_SEED,
                  # probability of entropy hyperparam.
-                 pe_iterations=_DEFAULT_PE_ITERATIONS,
-                 pe_seed=_DEFAULT_SEED,
-                 quiet=False):
+                 pe_iterations: int=_DEFAULT_PE_ITERATIONS,
+                 pe_seed: int=_DEFAULT_SEED,
+                 quiet: bool=False):
         """
         Initializes the instance to carry out the calculations (will be
         performed lazily i.e. on demand, when accessing the properties).
@@ -360,7 +358,7 @@ class LogLikelihoodDigitGroupEntropyTest():
         self._cdf = None
         self._quiet = quiet
 
-    def _init_likelihood_and_probs(self):
+    def _init_likelihood_and_probs(self) -> None:
         self._likelihood, self._p_values = get_log_likelihood(
             self._digits, self._slice_limits,
             self._bottom_n,
@@ -373,14 +371,14 @@ class LogLikelihoodDigitGroupEntropyTest():
         )
 
     @property
-    def likelihood(self):
+    def likelihood(self) -> float:
         """ Overall log likelihood of the digit sequence being tested. """
         if self._likelihood is None:
             self._init_likelihood_and_probs()
         return self._likelihood
 
     @property
-    def cdf(self):
+    def cdf(self) -> Callable[[float], float]:
         """ CDF function of the entropy log likelihood. """
 
         if self._cdf is None:
@@ -393,12 +391,12 @@ class LogLikelihoodDigitGroupEntropyTest():
         return self._cdf  # TODO: that is not exactly read-only...
 
     @property
-    def p(self):
+    def p(self) -> float:
         """ Probabilty of the experienced overall log likelihood value. """
         return self.cdf(self.likelihood)
 
     @property
-    def p_values(self):
+    def p_values(self) -> Dict[Any, int]:
         """ Dictionary of per group entropy probabilities. """
         if self._p_values is None:
             self._init_likelihood_and_probs()

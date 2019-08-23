@@ -3,23 +3,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.axes import Axes
+from typing import List
 
 
-def _get_full_filename(fingerprint_dir, filename):
+def _get_full_filename(fingerprint_dir: str, filename: str):
     if not os.path.exists(fingerprint_dir):
         os.mkdir(fingerprint_dir)
     full_filename = os.path.join(fingerprint_dir, filename)
     return full_filename
 
 
-def plot_fingerprint(party_votes, valid_votes, registered_voters, title,
-                     filename=None, weighted=True, zoom_onto=False,
-                     fingerprint_dir="", quiet=False, axes=None):
+def plot_fingerprint(party_votes: List[int], valid_votes: List[int],
+                     registered_voters: List[int],  title: str,
+                     filename: str=None, weighted: bool=True,
+                     zoom_onto: bool=False, fingerprint_dir: str="",
+                     quiet: bool=False, axes: Axes=None):
     """
     Plot electoral fingerprint (a 2D histogram).
     Originally recommended to be used in conjunction with the winner party.
 
-    :param party_votes: Array like of number of votes cast on the party depcted.
+    :param party_votes: Array like of number of votes cast on the party
+        depicted.
     :param valid_votes: Array like of valid votes (ballots) cast.
     :param registered_voters: Array like of all voters eligible to vote.
     :param title: Plot title.
@@ -65,12 +69,17 @@ def plot_fingerprint(party_votes, valid_votes, registered_voters, title,
         dest.show()
 
 
-def plot_animated_fingerprints(party_votes, valid_votes, registered_voters,
-                               frame_inclusions,
-                               title,
-                               filename=None, weighted=True, zoom_onto=False,
-                               fingerprint_dir="", quiet=False, axes=None,
-                               interval=200, frame_title_exts=None):
+def plot_animated_fingerprints(party_votes: List[int],
+                               valid_votes: List[int],
+                               registered_voters: List[int],
+                               frame_inclusions: List[List[bool]],
+                               title: str,
+                               filename: str=None,
+                               weighted: bool=True,
+                               zoom_onto: bool=False,
+                               fingerprint_dir: str="", quiet: bool=False,
+                               interval: int=200,
+                               frame_title_exts: List[str]=None):
 
     """
     Can be used to plot an animated .gif showing how the distribution of votes
@@ -86,8 +95,10 @@ def plot_animated_fingerprints(party_votes, valid_votes, registered_voters,
         include the nth row whenever the nth value is True.
     :param axes: axes to plot to, None to create a new plot.
     :param interval: animation interval to elapse between frames, in millisecs.
-    :param frame_title_exts: Optional array-like of frame-specific text to append
-        to the title. This parameter is experimental and might change.
+    :param frame_title_exts: Optional array-like of frame-specific text to
+        display on each frame, such as a frame index. Currently it appears in
+        the top left hand corner.
+        This parameter is experimental and might change.
     :return: None
     """
 

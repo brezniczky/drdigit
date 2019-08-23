@@ -1,13 +1,16 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from typing import Any, List
 
 
 USE_MEAN_DIGIT_GROUP = 4.5
 
 
-def _plot_votes_of_digits_hist(df, party, digit_groups, n_bins=20,
-                               max_votes=None, title=None,
-                               last_digit_colname_prefix="ld_"):
+def _plot_votes_of_digits_hist(df: pd.DataFrame, party: Any,
+                               digit_groups: List[Any], n_bins: int=20,
+                               max_votes: int=None, title: str=None,
+                               last_digit_colname_prefix: str="ld_") -> None:
 
     """ Special digit group value: 4.5, meaning "mean of all". """
 
@@ -34,8 +37,9 @@ def _plot_votes_of_digits_hist(df, party, digit_groups, n_bins=20,
 
 
 def _plot_party_vote_by_digit_relationships_with_average(
-        df, party, max_votes, last_digit_colname_prefix, n_bins
-):
+        df: pd.DataFrame, party: Any, max_votes: int,
+        last_digit_colname_prefix: str, n_bins: int
+) -> None:
     f = plt.figure()
     f.suptitle("Distribution of %s vote counts by last digit vs. their average "
                "empiric distribution" % (party))
@@ -63,7 +67,7 @@ def _plot_party_vote_by_digit_relationships_with_average(
 def plot_party_vote_by_digit_relationships(df, party="Fidesz", ref_digit=7,
                                            max_votes=None,
                                            last_digit_colname_prefix="ld_",
-                                           n_bins=20):
+                                           n_bins=20) -> None:
     """
 
     :param df: columns should contain
