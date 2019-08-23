@@ -3,17 +3,44 @@ from . import (
     twin_digits, digit_filtering,
     fingerprint_plots, digit_distribution_charts,
 )
+from .digit_correlations import (
+    digit_correlation_cdf, equality_rel_freq, digit_equality_prob_cdf,
+    correlation_prob_coeff_df, equality_prob_coeff_df, equality_prob_vector,
+    get_col_mean_prob, get_matrix_mean_prob,
+)
+from .digit_entropy_distribution import (
+    get_entropy, get_entr_cdf_fun, prob_of_entr, LogLikelihoodDigitGroupEntropyTest,
+    LodigeTest,
+)
+from .digit_filtering import get_feasible_groups, get_feasible_rows
+from .fingerprint_plots import plot_fingerprint, plot_animated_fingerprints
+from .scoring import get_group_scores
+
+
 from joblib import Memory
 
 # TODO: utilize a default such as "./digit_correlations_cache"
 
 
 __all__ = (
-    "twin_digits",
-    "digit_correlations",
-    "digit_entropy_distribution",
-    "fingerprint_plots",
-    "digit_distribution_charts",
+    "digit_correlation_cdf",
+    "equality_rel_freq",
+    "digit_equality_prob_cdf",
+    "correlation_prob_coeff_df",
+    "equality_prob_coeff_df",
+    "equality_prob_vector",
+    "get_col_mean_prob",
+    "get_matrix_mean_prob",
+    "get_entropy",
+    "get_entr_cdf_fun",
+    "prob_of_entr",
+    "LogLikelihoodDigitGroupEntropyTest",
+    "LodigeTest",
+    "get_feasible_groups",
+    "get_feasible_rows",
+    "get_group_scores"
+    "plot_fingerprint",
+    "plot_animated_fingerprints",
 )
 
 _mem = None

@@ -80,10 +80,10 @@ cached_generate_sample = _lru_cached_generate_sample
 
 
 @lru_cache(1000)
-def get_cdf_fun(n_wards: int,
-                seed: int=_DEFAULT_SEED,
-                iterations: int=_DEFAULT_ITERATIONS,
-                quiet: bool=False) -> Callable[[float, Optional[bool]], float]:
+def get_entr_cdf_fun(
+    n_wards: int, seed: int=_DEFAULT_SEED, iterations: int=_DEFAULT_ITERATIONS,
+    quiet: bool=False
+) -> Callable[[float, Optional[bool]], float]:
     """ Return a PMF of digit distribution entropy values, that is, F where
         F(y) = P(X <= y)
 
@@ -133,7 +133,7 @@ def prob_of_entr(n_wards: int, entr: float,
         :param quiet: Whether or not to allow printing messages useful for
             tracing what goes on, as simulations can take a good while.
     """
-    cdf = get_cdf_fun(n_wards, seed, iterations, quiet)
+    cdf = get_entr_cdf_fun(n_wards, seed, iterations, quiet)
     return cdf(entr, avoid_inf=avoid_inf)
 
 
@@ -305,10 +305,8 @@ class LogLikelihoodDigitGroupEntropyTest():
 
     def __init__(self,
                  digits: int, group_ids: List[Any], bottom_n: int,
-                 # log likelihood probability calc. hyperparam.
                  ll_iterations: int=_DEFAULT_LL_ITERATIONS,
                  ll_seed: int=_DEFAULT_LL_SEED,
-                 # probability of entropy hyperparam.
                  pe_iterations: int=_DEFAULT_PE_ITERATIONS,
                  pe_seed: int=_DEFAULT_SEED,
                  quiet: bool=False):
@@ -403,16 +401,6 @@ class LogLikelihoodDigitGroupEntropyTest():
         return dict(
             list(zip(self._group_ids, self._p_values))
         )
-
-
-def test():
-    res = list(LodigeTest.get_slice_limits([1, 2, 2, 3, 3, 3]))
-    assert (
-        res ==
-            [(0, 1),
-             (1, 3),
-             (3, 6)]
-    )
 
 
 """ Short name for now... """

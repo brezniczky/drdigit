@@ -9,9 +9,9 @@ from drdigit.twin_digits import prob_of_twins
 from drdigit.digit_correlations import equality_prob_vector
 
 
-def get_overhearing_scores(group_ids: List[Any],
-                           base_columns: List[List[int]],
-                           indep_columns: List[List[int]]) -> None:
+def _get_overhearing_scores(group_ids: List[Any],
+                            base_columns: List[List[int]],
+                            indep_columns: List[List[int]]) -> None:
 
     indep_colnames = ["col_%d" % i for i in range(len(indep_columns))]
     indep_dict = {
@@ -97,7 +97,7 @@ if __name__ == "__main__":
                             1, 1],
                            [5, 6, 3, 6,
                             5, 5]))
-    print(get_overhearing_scores(
+    print(_get_overhearing_scores(
         group_ids=[1, 1, 2, 2],
         base_columns=[[1, 2, 3, 4]],
         indep_columns=[[2, 3, 3, 4], [10, 11, 11, 10]],

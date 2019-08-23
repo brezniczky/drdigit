@@ -66,7 +66,7 @@ def get_feasible_rows(df: pd.DataFrame, min_value: int,
     return df[is_okay]
 
 
-def get_feasible_subseries(arr, min_votes):
-    # TODO: here's a one (0.5?) off error, well done ;) it goes -5 to 4 - fix it
-    arr = arr[arr >= (min_votes - 5) + np.random.choice(range(10), len(arr))]
-    return arr
+# def get_feasible_subseries(arr, min_votes):
+#     # TODO: here's a one (0.5?) off error, well done ;) it goes -5 to 4 - fix it
+#     arr = arr[arr >= (min_votes - 5) + np.random.choice(range(10), len(arr))]
+#     return arr
