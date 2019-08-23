@@ -79,7 +79,7 @@ def get_group_scores(group_ids: List[Any], digits: List[int],
     agg = df.groupby(["group_id"]).aggregate([agg_prob_of_entr, prob_of_twins])
 
     if len(overhearing_base_columns) > 0 and len(overhearing_indep_columns) > 0:
-        overhearing_scores = get_overhearing_scores(
+        overhearing_scores = _get_overhearing_scores(
             group_ids,
             overhearing_base_columns,
             overhearing_indep_columns,
