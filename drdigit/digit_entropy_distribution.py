@@ -1,13 +1,13 @@
 from scipy.stats import entropy
 import numpy as np
+import numpy.random as rnd
 from functools import lru_cache
 import pandas as pd
-from joblib import Memory
 from typing import List, Tuple, Callable, Optional, Dict, Any
 
 
 # TODO: doc/naming, n_wards -> n_digits
-# TODO: naming  diigt_entropy_distribution -> digit_entropy
+# TODO: naming: digit_entropy_distribution -> digit_entropy
 # TODO: avoid_inf ~ better termed avoid_zero unless already in log likelihood
 # TODO: oddmost -> most odd
 
@@ -21,9 +21,6 @@ _DEFAULT_LL_SEED = 1234
 _DEFAULT_LL_ITERATIONS = 1000
 _DEFAULT_PE_RANDOM_SEED = 1234
 _DEFAULT_PE_ITERATIONS = 12345
-
-
-mem = Memory("./.digit_entropy_distribution_cache", verbose=0)
 
 
 def get_entropy(x: List[int]) -> float:
@@ -55,10 +52,12 @@ def get_entropy(x: List[int]) -> float:
 # differences by the look
 
 
-def _uncached_generate_sample(n_wards: int,
-                              seed: int=_DEFAULT_SEED,
-                              iterations: int=_DEFAULT_ITERATIONS,
-                              quiet: bool=False) -> np.ndarray:
+def _uncached_ref_generate_sample(n_wards: int,
+                                  seed: int=_DEFAULT_SEED,
+                                  iterations: int=_DEFAULT_ITERATIONS,
+                                  quiet: bool=False) -> np.ndarray:
+    """ Simple, deprecated implementation, functioning as a reference, 
+        speed up is below """
     np.random.seed(seed)
     entrs = []
     for i in range(iterations):
@@ -69,6 +68,27 @@ def _uncached_generate_sample(n_wards: int,
     if not quiet:
         print("cdf for %d was generated" % n_wards)
     return np.array(entrs)
+
+
+def _uncached_generate_sample(n_wards: int,
+                              seed: int=_DEFAULT_SEED,
+                              iterations: int=_DEFAULT_ITERATIONS,
+                              quiet: bool=False) -> np.ndarray:
+    def get_entropy(x):
+        # print("\nget_counts called with")
+        _, counts = np.unique(x, return_counts=True)
+        # entropy internally does some normalization, I trust this to be fast
+        return entropy(counts)
+
+    rnd.seed(seed)
+    seq = rnd.choice(range(10), n_wards * iterations)
+    group_ids = np.repeat(range(iterations), n_wards)
+    df = pd.DataFrame(dict(id=group_ids, dig=seq))
+    agg = df.groupby(["id"]).aggregate(get_entropy)
+
+    if not quiet:
+        print("cdf for %d was generated" % n_wards)
+    return agg["dig"].values
 
 
 @lru_cache()
@@ -97,6 +117,9 @@ def get_entr_cdf_fun(
         (y, avoid_inf=False) tells to avoid returning zero probabilities, and
         instead return a (currently, upper) estimate on the probability that
         goes undetected in the simulation.
+
+        The get_sample() function of the returned CDF returns a copy to the
+        underlying sample.
     """
     sample = cached_generate_sample(n_wards, seed, iterations, quiet=quiet)
     values, counts = np.unique(sample, return_counts=True)
@@ -112,6 +135,8 @@ def get_entr_cdf_fun(
         else:
             # give a probability that likely goes undetected
             return 1 / total   # TODO: not 100% about this one
+
+    cdf_fun.get_sample = lambda: sample.copy()
 
     return cdf_fun
 
