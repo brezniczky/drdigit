@@ -30,7 +30,7 @@ def get_entropy(x: List[int]) -> float:
     :param x: Should be a list-like of digits.
     """
     _, counts = np.unique(x, return_counts=True)
-    counts = counts / sum(counts)
+    # no need to normalize, entropy() accepts weights not adding up to 1
     # no need to pad for missing digits, terms with a zero coeff.
     # fall out anyway
     #
@@ -124,19 +124,39 @@ def get_entr_cdf_fun(
     sample = cached_generate_sample(n_wards, seed, iterations, quiet=quiet)
     values, counts = np.unique(sample, return_counts=True)
     total = sum(counts)
-    counts = np.cumsum(counts)
+    counts_upto = np.cumsum(counts)
+    probs_upto = counts_upto / total
+    probs_at = counts / total
 
     def cdf_fun(y, avoid_inf=False):
         idx = np.digitize(y, values) - 1
         if idx >= 0:
-            return counts[idx] / total
+            return probs_upto[idx]
         elif not avoid_inf:
             return 0
         else:
             # give a probability that likely goes undetected
             return 1 / total   # TODO: not 100% about this one
 
+    @lru_cache(1)
+    def get_mean():
+        return np.mean(sample)
+
+    @lru_cache(1)
+    def get_stdev():
+        return np.std(sample, ddof=1)
+
+    def draw_prob(size=1, avoid_inf=False) -> np.array:
+        """ Return a number of random entropy probabilities, probability of an
+            item uniformly picked from those in the sample. Technically
+            simulates the probability of entropy random variable that accords
+            with the CDF params. """
+        return rnd.choice(probs_upto, size=size, p=probs_at)
+
     cdf_fun.get_sample = lambda: sample.copy()
+    cdf_fun.get_mean = get_mean
+    cdf_fun.get_stdev = get_stdev
+    cdf_fun.draw_prob = draw_prob
 
     return cdf_fun
 
@@ -209,21 +229,28 @@ def get_log_likelihood(digits: List[int], slice_limits: List[Tuple[int, int]],
         return l, probs
 
 
-def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
-                       seed: int=_DEFAULT_LL_SEED,
-                       iterations: int=_DEFAULT_LL_ITERATIONS,
-                       pe_seed: int=_DEFAULT_PE_RANDOM_SEED,
-                       pe_iterations: int=_DEFAULT_PE_ITERATIONS,
-                       quiet: bool=False) -> Callable[[float], float]:
+def ref_get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
+                           seed: int=_DEFAULT_LL_SEED,
+                           iterations: int=_DEFAULT_LL_ITERATIONS,
+                           pe_seed: int=_DEFAULT_PE_RANDOM_SEED,
+                           pe_iterations: int=_DEFAULT_PE_ITERATIONS,
+                           avoid_inf: bool=False,
+                           quiet: bool=False) -> Callable[[float], float]:
     """
+    Otherwise deprecated, reference implementation for regression testing.
+
     Return a cdf dealing with multiple groups of digits of different sizes, like
     a group of municipalities consisting of electoral wards, each ward being
     associated with a last digit of a vote count.
 
     The CDF returns the probability of the (base 10) digit entropies dropping as
     low as experienced in the top n most odd groups, as measured by an overall
-    log likelihood formed from the individual groups' entropy probabilities.
+    log likelihood formed of the individual groups' entropy probabilities.
 
+    This CDF is obtained by generating a number of digit sequences and
+    evaluating their log likelihood.
+
+    :return:
     :param slice_limits: Digit group limits in a list of (start, end) pairs.
     :param bottom_n: How many of the oddmost to examine.
     :param seed: Random seed for reproducibility of the internal MC simulation
@@ -232,6 +259,9 @@ def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
     :param pe_seed: Seed for the per group size CDF's internal MC simulations.
     :param pe_iterations: Number of iterations for the per group size CDF's
         internal MC simulation.
+    :param avoid_inf: Whether or not to use a substitute value for those
+        otherwise resulting from taking the log of a zero probability (i.e. for
+        values not experienced in the MC).
     :param quiet: Whether or not to allow printing messages useful for
         tracing what goes on, as simulations can take a good while.
     :return: The cdf function taking a single log likelihood value (this can be
@@ -263,7 +293,8 @@ def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
         digits = np.random.choice(range(10), n_settlements)
         sim_likelihood = get_log_likelihood(digits, slice_limits,
                                             bottom_n, pe_seed, pe_iterations,
-                                            quiet=quiet)
+                                            quiet=quiet,
+                                            avoid_inf=avoid_inf)
         sample.append(sim_likelihood)
         # -Inf will count in a "forgiving" way still, so a warning only
         if np.isinf(sim_likelihood) and not quiet:
@@ -285,6 +316,88 @@ def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
         else:
             return 0
     print("There were", warnings, "warnings.")
+
+    cdf.min = min(values[~np.isinf(values)])
+    cdf.max = max(values[~np.isinf(values)])
+    cdf.sample = sample
+
+    return cdf
+
+
+def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
+                       seed: int=_DEFAULT_LL_SEED,
+                       iterations: int=_DEFAULT_LL_ITERATIONS,
+                       pe_seed: int=_DEFAULT_PE_RANDOM_SEED,
+                       pe_iterations: int=_DEFAULT_PE_ITERATIONS,
+                       avoid_inf: bool=False,
+                       quiet: bool=False) -> Callable[[float], float]:
+    """
+    Return a cdf dealing with multiple groups of digits of different sizes, like
+    a group of municipalities consisting of electoral wards, each ward being
+    associated with a last digit of a vote count.
+
+    The CDF returns the probability of the (base 10) digit entropies dropping as
+    low as experienced in the top n most odd groups, as measured by an overall
+    log likelihood formed of the individual groups' entropy probabilities.
+
+    This CDF is obtained by utilizing the known probabilities that are sampled
+    in the underlying digit group (e.g. municipality) CDFs, randomly drawing
+    from them (adhering to the frequency they showed up/could be found in the
+    sample), and utilizing these as the basis of log likelihood calculations,
+    in a vectorized (i.e. much quicker) way than before.
+
+    :return:
+    :param slice_limits: Digit group limits in a list of (start, end) pairs.
+    :param bottom_n: How many of the oddmost to examine.
+    :param seed: Random seed for reproducibility of the internal MC simulation
+        of "long sequences" - sequences covering all digit groups.
+    :param iterations: Number of iterations for the internal MC simulation.
+    :param pe_seed: Seed for the per group size CDF's internal MC simulations.
+    :param pe_iterations: Number of iterations for the per group size CDF's
+        internal MC simulation.
+    :param avoid_inf: Whether or not to use a substitute value for those
+        otherwise resulting from taking the log of a zero probability (i.e. for
+        values not experienced in the MC).
+    :param quiet: Whether or not to allow printing messages useful for
+        tracing what goes on, as simulations can take a good while.
+    :return: The cdf function taking a single log likelihood value (this can be
+        obtained by calling get_log_likelihood()).
+    """
+    cdfs = []
+    for s, e in slice_limits:
+        cdfs.append(get_entr_cdf_fun(e - s + 1, pe_seed, pe_iterations, quiet))
+
+    rnd.seed(seed)
+    warnings = 0
+
+    # TODO: do all those having the same distribution (ward count) at once
+    def get_bottom_n(probs):
+        return sorted(probs)[:bottom_n]
+
+    p_rows = [
+        cdf.draw_prob(size=iterations, avoid_inf=avoid_inf)
+        for cdf in cdfs
+    ]
+    m = np.array(p_rows).transpose()
+    bottom_n_probs = np.apply_along_axis(get_bottom_n, 1, m)
+    del m
+    logs = np.log(bottom_n_probs)
+    del bottom_n_probs
+    sample = np.apply_along_axis(sum, 1, logs)
+
+    values, counts = np.unique(sample, return_counts=True)
+    total = sum(counts)
+    counts = np.cumsum(counts)
+
+    def cdf(l: float) -> float:
+        """ CDF: P(L <= L_actual) """
+        idx = np.digitize(l, values) - 1
+        if idx >= 0:
+            return counts[idx] / total
+        else:
+            return 0
+    if not quiet or warnings > 0:
+        print("There were", warnings, "warnings.")
 
     cdf.min = min(values[~np.isinf(values)])
     cdf.max = max(values[~np.isinf(values)])
@@ -334,6 +447,7 @@ class LogLikelihoodDigitGroupEntropyTest():
                  ll_seed: int=_DEFAULT_LL_SEED,
                  pe_iterations: int=_DEFAULT_PE_ITERATIONS,
                  pe_seed: int=_DEFAULT_SEED,
+                 avoid_inf: bool=False,
                  quiet: bool=False):
         """
         Initializes the instance to carry out the calculations (will be
@@ -351,6 +465,9 @@ class LogLikelihoodDigitGroupEntropyTest():
             internal MC simulation.
         :param pe_seed: Seed for the per group size CDF's internal MC
             simulations.
+        :param avoid_inf: Whether to use a substitute value for probabilities in
+            the internal CDF when it evaluates to zero, thus preventing -Infs in
+            the LL.
         :param quiet: Whether to suppress debug related messages.
         """
 
@@ -379,6 +496,7 @@ class LogLikelihoodDigitGroupEntropyTest():
         self._likelihood = None
         self._p_values = None
         self._cdf = None
+        self._avoid_inf = avoid_inf
         self._quiet = quiet
 
     def _init_likelihood_and_probs(self) -> None:
@@ -389,7 +507,7 @@ class LogLikelihoodDigitGroupEntropyTest():
             return_probs=True,
             # obtain an "upper estimate" on the likelihood to
             # avoid possible Infs resulting from numeric resolution
-            avoid_inf=True,
+            avoid_inf=self._avoid_inf,
             quiet=self._quiet
         )
 
@@ -409,7 +527,8 @@ class LogLikelihoodDigitGroupEntropyTest():
                 self._slice_limits, self._bottom_n,
                 self._ll_seed, self._ll_iterations,
                 self._pe_seed, self._pe_iterations,
-                quiet=self._quiet
+                avoid_inf=self._avoid_inf,
+                quiet=self._quiet,
             )
         return self._cdf  # TODO: that is not exactly read-only...
 
