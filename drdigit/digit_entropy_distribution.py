@@ -8,7 +8,6 @@ from typing import List, Tuple, Callable, Optional, Dict, Any
 
 # TODO: doc/naming, n_wards -> n_digits
 # TODO: naming: digit_entropy_distribution -> digit_entropy
-# TODO: avoid_inf ~ better termed avoid_zero unless already in log likelihood
 # TODO: oddmost -> most odd
 
 
@@ -138,15 +137,7 @@ def get_entr_cdf_fun(
             # give a probability that likely goes undetected
             return 1 / total   # TODO: not 100% about this one
 
-    @lru_cache(1)
-    def get_mean():
-        return np.mean(sample)
-
-    @lru_cache(1)
-    def get_stdev():
-        return np.std(sample, ddof=1)
-
-    def draw_prob(size=1, avoid_inf=False) -> np.array:
+    def draw_prob(size=1) -> np.array:
         """ Return a number of random entropy probabilities, probability of an
             item uniformly picked from those in the sample. Technically
             simulates the probability of entropy random variable that accords
@@ -154,8 +145,6 @@ def get_entr_cdf_fun(
         return rnd.choice(probs_upto, size=size, p=probs_at)
 
     cdf_fun.get_sample = lambda: sample.copy()
-    cdf_fun.get_mean = get_mean
-    cdf_fun.get_stdev = get_stdev
     cdf_fun.draw_prob = draw_prob
 
     return cdf_fun
@@ -200,7 +189,7 @@ def get_log_likelihood(digits: List[int], slice_limits: List[Tuple[int, int]],
 
     :param digits: Digits sequence. Groups should be formed of adjacent digits.
     :param slice_limits: Digit group limits in a list of (start, end) pairs.
-    :param bottom_n: How many of the oddmost to examine.
+    :param bottom_n: How many of the oddest to examine.
     :param seed: Random seed for reproducibility of the internal MC simulation.
     :param iterations: Number of iterations for the internal MC simulation.
     :param towns: Town names associated with the groups for great debug
@@ -252,7 +241,7 @@ def ref_get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
 
     :return:
     :param slice_limits: Digit group limits in a list of (start, end) pairs.
-    :param bottom_n: How many of the oddmost to examine.
+    :param bottom_n: How many of the oddest to examine.
     :param seed: Random seed for reproducibility of the internal MC simulation
         of "long sequences" - sequences covering all digit groups.
     :param iterations: Number of iterations for the internal MC simulation.
@@ -267,7 +256,6 @@ def ref_get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
     :return: The cdf function taking a single log likelihood value (this can be
         obtained by calling get_log_likelihood()).
     """
-
     sample = []
     # end of the last slice is the ...
     n_settlements = slice_limits[-1][1]
@@ -329,7 +317,6 @@ def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
                        iterations: int=_DEFAULT_LL_ITERATIONS,
                        pe_seed: int=_DEFAULT_PE_RANDOM_SEED,
                        pe_iterations: int=_DEFAULT_PE_ITERATIONS,
-                       avoid_inf: bool=False,
                        quiet: bool=False) -> Callable[[float], float]:
     """
     Return a cdf dealing with multiple groups of digits of different sizes, like
@@ -346,6 +333,8 @@ def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
     sample), and utilizing these as the basis of log likelihood calculations,
     in a vectorized (i.e. much quicker) way than before.
 
+    Remark: infinite probability logs shouldn't be an issue here.
+
     :return:
     :param slice_limits: Digit group limits in a list of (start, end) pairs.
     :param bottom_n: How many of the oddmost to examine.
@@ -355,9 +344,6 @@ def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
     :param pe_seed: Seed for the per group size CDF's internal MC simulations.
     :param pe_iterations: Number of iterations for the per group size CDF's
         internal MC simulation.
-    :param avoid_inf: Whether or not to use a substitute value for those
-        otherwise resulting from taking the log of a zero probability (i.e. for
-        values not experienced in the MC).
     :param quiet: Whether or not to allow printing messages useful for
         tracing what goes on, as simulations can take a good while.
     :return: The cdf function taking a single log likelihood value (this can be
@@ -375,7 +361,7 @@ def get_likelihood_cdf(slice_limits: List[Tuple[int, int]], bottom_n: int,
         return sorted(probs)[:bottom_n]
 
     p_rows = [
-        cdf.draw_prob(size=iterations, avoid_inf=avoid_inf)
+        cdf.draw_prob(size=iterations)
         for cdf in cdfs
     ]
     m = np.array(p_rows).transpose()
@@ -466,8 +452,8 @@ class LogLikelihoodDigitGroupEntropyTest():
         :param pe_seed: Seed for the per group size CDF's internal MC
             simulations.
         :param avoid_inf: Whether to use a substitute value for probabilities in
-            the internal CDF when it evaluates to zero, thus preventing -Infs in
-            the LL.
+            the internal per digit group CDFs when it evaluates to zero, thus
+            preventing -Infs in the LL.
         :param quiet: Whether to suppress debug related messages.
         """
 
@@ -527,7 +513,6 @@ class LogLikelihoodDigitGroupEntropyTest():
                 self._slice_limits, self._bottom_n,
                 self._ll_seed, self._ll_iterations,
                 self._pe_seed, self._pe_iterations,
-                avoid_inf=self._avoid_inf,
                 quiet=self._quiet,
             )
         return self._cdf  # TODO: that is not exactly read-only...
