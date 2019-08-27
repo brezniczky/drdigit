@@ -13,8 +13,9 @@ from .digit_entropy_distribution import (
     LodigeTest,
 )
 from .digit_filtering import get_feasible_groups, get_feasible_rows
-from .fingerprint_plots import plot_fingerprint, plot_animated_fingerprints
 from .scoring import get_group_scores
+from .fingerprint_plots import plot_fingerprint, plot_animated_fingerprints
+from .entropy_plots import plot_entropy_distribution
 
 
 from joblib import Memory
