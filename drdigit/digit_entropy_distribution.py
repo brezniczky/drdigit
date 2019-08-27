@@ -125,17 +125,25 @@ def get_entr_cdf_fun(
     total = sum(counts)
     counts_upto = np.cumsum(counts)
     probs_upto = counts_upto / total
+
+    # insert a synthetic "0.5" occurrence for now, a correct solution can get
+    # complicated, issue #6 addresses it
+    counts_upto_avoid_inf = np.array([0.5] + list(counts_upto + 0.5))
+    probs_upto_avoid_inf = counts_upto_avoid_inf / (counts_upto_avoid_inf[-1])
+    values_avoid_inf = np.array([0] + list(values))
+
     probs_at = counts / total
 
     def cdf_fun(y, avoid_inf=False):
-        idx = np.digitize(y, values) - 1
-        if idx >= 0:
-            return probs_upto[idx]
-        elif not avoid_inf:
-            return 0
+        if avoid_inf:
+            idx = np.digitize(y, values_avoid_inf) - 1
+            return probs_upto_avoid_inf[idx]
         else:
-            # give a probability that likely goes undetected
-            return 1 / total   # TODO: not 100% about this one
+            idx = np.digitize(y, values) - 1
+            if idx >= 0:
+                return probs_upto[idx]
+            else:
+                return 0
 
     def draw_prob(size=1) -> np.array:
         """ Return a number of random entropy probabilities, probability of an
