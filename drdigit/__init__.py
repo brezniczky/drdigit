@@ -14,7 +14,8 @@ from .digit_entropy_distribution import (
 )
 from .digit_filtering import get_feasible_groups, get_feasible_rows
 from .scoring import get_group_scores
-from .fingerprint_plots import plot_fingerprint, plot_animated_fingerprints
+from .fingerprint_plots import (plot_fingerprint, plot_animated_fingerprints,
+                                plot_explanatory_fingerprint_responses)
 from .entropy_plots import plot_entropy_distribution
 
 
@@ -42,6 +43,7 @@ __all__ = (
     "get_group_scores"
     "plot_fingerprint",
     "plot_animated_fingerprints",
+    "plot_explanatory_fingerprint_responses",
 )
 
 _mem = None

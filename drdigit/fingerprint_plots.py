@@ -51,33 +51,100 @@ def plot_fingerprint(party_votes: List[int], valid_votes: List[int],
     else:
         _, dest = plt.subplots()
 
-    dest.hist2d(
-        # winner_votes / registered_voters,  # TODO: or valid_votes?
-        valid_votes / registered_voters,
-        party_votes / valid_votes,  # TODO: or valid_votes?
-        bins=bins,
-        weights=weights
-    )
-    dest.set_title(title)
+    try:
+        dest.hist2d(
+            # winner_votes / registered_voters,  # TODO: or valid_votes?
+            valid_votes / registered_voters,
+            party_votes / valid_votes,  # TODO: or valid_votes?
+            bins=bins,
+            weights=weights
+        )
+        dest.set_title(title)
 
-    dest.set_xlabel("Turnout")
-    dest.set_ylabel("Vote share")
+        dest.set_xlabel("Turnout")
+        dest.set_ylabel("Vote share")
 
-    perc_fmt = mtick.PercentFormatter(xmax=1)
-    # https://stackoverflow.com/questions/31357611/format-y-axis-as-percent
-    # (almost :) )
-    dest.xaxis.set_major_formatter(perc_fmt)
-    dest.yaxis.set_major_formatter(perc_fmt)
+        perc_fmt = mtick.PercentFormatter(xmax=1)
+        # https://stackoverflow.com/questions/31357611/format-y-axis-as-percent
+        # (almost :) )
+        dest.xaxis.set_major_formatter(perc_fmt)
+        dest.yaxis.set_major_formatter(perc_fmt)
 
-    if filename is not None:
-        full_filename = _get_full_filename(fingerprint_dir, filename)
-        plt.savefig(full_filename)
+        if filename is not None:
+            full_filename = _get_full_filename(fingerprint_dir, filename)
+            plt.savefig(full_filename)
+            if not quiet:
+                print("plot saved as %s" % full_filename)
+        if not quiet and axes is None:
+            plt.show()
+    finally:
+        if axes is None:
+            plt.close()
+
+
+def plot_explanatory_fingerprint_responses(filename: str=None, quiet: bool=False,
+                                           fontsize=12):
+    """
+    Plot a fingerprint explanation chart, optionally save/don't show it.
+    Election fingerprints may be difficult to take in at first.
+
+    :param filename: The figure is saved under this filename as an image if
+        specified.
+    :param quiet: Whether to avoid showing the plot.
+    :param fontsize: Experimentally found that 15 is a good fit for a plot of
+        pyplot.rcparams["figure.figsize"] = [9, 7], the default value seemed to
+        work with the default plot size.
+    :return:
+    """
+    fig, ax = plt.subplots()
+    try:
+        ax.set_title("Some responses of the election\n"
+                     "fingerprint of a party to impacts",
+                     fontsize=fontsize)
+        ax.set_xlabel("Turnout")
+        ax.set_ylabel("Vote share")
+        perc_fmt = mtick.PercentFormatter(xmax=1)
+        ax.xaxis.set_major_formatter(perc_fmt)
+        ax.yaxis.set_major_formatter(perc_fmt)
+
+        ax.text(0.75, 0.65,
+                "+ votes\nof this\n"
+                "\u21D2\n"
+                "+ share\n+ turnout",
+                fontsize=fontsize)
+        ax.text(0.75, 0.15,
+                "+ votes\nof other(s)\n"
+                "\u21D2\n"
+                "- share\n+ turnout",
+                fontsize=fontsize)
+        ax.text(0.1, 0.65,
+                "- votes\nof other(s)\n"
+                "\u21D2\n"
+                "+ share\n- turnout",
+                fontsize=fontsize)
+        ax.text(0.1, 0.15,
+                "- votes\nof this\n"
+                "\u21D2\n"
+                "- share\n- turnout",
+                fontsize=fontsize)
+
+        ax.text(0.40, 0.8, "\\\u263A/ party", fontsize=fontsize * 1.2)
+        ax.text(0.40, 0.2, "/\u2639\\ party", fontsize=fontsize * 1.2)
+
+        for dx in[-0.1, 0.1]:
+            for dy in [-0.1, 0.1]:
+                ax.arrow(0.5 + dx / 2, 0.5 + dy / 2, dx, dy,
+                         head_width=0.025, head_length=0.025)
+
+        if filename is not None:
+            plt.savefig(filename)
+            if not quiet:
+                print("plot saved as %s" % filename)
         if not quiet:
-            print("plot saved as %s" % full_filename)
-    if not quiet and axes is None:
-        plt.show()
-    if axes is None:
+            plt.show()
+    finally:
         plt.close()
+
 
 
 def plot_animated_fingerprints(party_votes: List[int],
