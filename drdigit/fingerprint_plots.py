@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.axes import Axes
+import matplotlib.ticker as mtick
 from typing import List
 
 
@@ -48,7 +49,7 @@ def plot_fingerprint(party_votes: List[int], valid_votes: List[int],
     if axes is not None:
         dest = axes
     else:
-        dest = plt
+        _, dest = plt.subplots()
 
     dest.hist2d(
         # winner_votes / registered_voters,  # TODO: or valid_votes?
@@ -57,16 +58,26 @@ def plot_fingerprint(party_votes: List[int], valid_votes: List[int],
         bins=bins,
         weights=weights
     )
-    if axes is None:
-        dest.title(title)
-    else:
-        dest.set_title(title)
+    dest.set_title(title)
+
+    dest.set_xlabel("Turnout")
+    dest.set_ylabel("Vote share")
+
+    perc_fmt = mtick.PercentFormatter(xmax=1)
+    # https://stackoverflow.com/questions/31357611/format-y-axis-as-percent
+    # (almost :) )
+    dest.xaxis.set_major_formatter(perc_fmt)
+    dest.yaxis.set_major_formatter(perc_fmt)
+
     if filename is not None:
         full_filename = _get_full_filename(fingerprint_dir, filename)
-        dest.savefig(full_filename)
-        print("plot saved as %s" % full_filename)
+        plt.savefig(full_filename)
+        if not quiet:
+            print("plot saved as %s" % full_filename)
     if not quiet and axes is None:
-        dest.show()
+        plt.show()
+    if axes is None:
+        plt.close()
 
 
 def plot_animated_fingerprints(party_votes: List[int],

@@ -6,7 +6,8 @@ def plot_entropy_distribution(actual_total_ent: float,
                               p: float,
                               entropies: List[float],
                               output_filename=None,
-                              is_quiet=False):
+                              is_quiet=False,
+                              title=None):
     """
     Plot and/or save an entropy distribution chart: a histogram with a specific
     value indicated with a vertical line and a probability to mention.
@@ -31,6 +32,10 @@ def plot_entropy_distribution(actual_total_ent: float,
     x2, _ = ax.transData.inverted().transform((0, disp_y))
     ax.text(actual_total_ent + x1 - x2, y,
             u"P \u2248 %.2f %%" % (p * 100))
+    plt.xlabel("Entropy log likelihood")
+    plt.ylabel("Frequency in sample")
+    if title is not None:
+        plt.title(title)
     if output_filename is not None:
         plt.savefig(output_filename)
     if not is_quiet:
