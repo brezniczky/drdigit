@@ -21,7 +21,8 @@ from .entropy_plots import plot_entropy_distribution
 
 from joblib import Memory
 
-# TODO: utilize a default such as "./digit_correlations_cache"
+
+DEFAULT_CACHE_PATH = "./.drdigit_cache"
 
 
 __all__ = (
@@ -53,26 +54,37 @@ def set_option(physical_cache_path: str=None) -> None:
     """
     Set global options to the package.
 
-    :param physical_cache_path: Caching through python interpreter restarts
+    :param physical_cache_path: Caching across Python interpreter sessions
         can save a lot of time. This option allows on-disk caching when the
-        path is specified. The default, None, sticks with in-memory caching.
+        path is specified.
 
+        Specifying an empty string ("") switches disk-caching off explicitly.
+        Use "." to specify the current working directory instead.
         Kaggle kernels "seemed to like" on disk caching as long as I didn't
         try to commit the notebook. Then things ended up with a Code: 0 error
-        failing the publishing attempt.
+        failing the publishing attempt. It may be the most convenient there to
+        comment out a set_option("") while experimenting, and to uncomment it
+        just before committing the kernel.
+
+        Leaving it at the default of None leaves the options unchanged.
+        (There's likely more to come.)
     :return: None
     """
     if physical_cache_path is not None:
-        _mem = Memory(physical_cache_path, verbose=0)
-        digit_correlations._cached_get_digit_correlation_data = \
-            _mem.cache(digit_correlations._uncached_get_digit_correlation_data)
-        digit_entropy_distribution.cached_generate_sample = \
-            _mem.cache(digit_entropy_distribution._uncached_generate_sample)
-    else:
-        digit_correlations.cached = \
-            digit_correlations._cached_get_digit_correlation_data
-        digit_entropy_distribution.cached_generate_sample = \
-            digit_entropy_distribution.cached_generate_sample
+        global _mem
+
+        if physical_cache_path != "":
+            _mem = Memory(physical_cache_path, verbose=0)
+            digit_correlations._cached_get_digit_correlation_data = \
+                _mem.cache(digit_correlations._uncached_get_digit_correlation_data)
+            digit_entropy_distribution.cached_generate_sample = \
+                _mem.cache(digit_entropy_distribution._uncached_generate_sample)
+        else:
+            _mem = None
+            digit_correlations.cached = \
+                digit_correlations._cached_get_digit_correlation_data
+            digit_entropy_distribution.cached_generate_sample = \
+                digit_entropy_distribution.cached_generate_sample
 
 
 def clear_physical_cache() -> None:
@@ -84,3 +96,6 @@ def clear_physical_cache() -> None:
     """
     if _mem is not None:
         _mem.clear()
+
+
+set_option(physical_cache_path=DEFAULT_CACHE_PATH)
