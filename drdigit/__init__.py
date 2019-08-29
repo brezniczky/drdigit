@@ -82,9 +82,9 @@ def set_option(physical_cache_path: str=None) -> None:
         else:
             _mem = None
             digit_correlations.cached = \
-                digit_correlations._cached_get_digit_correlation_data
+                digit_correlations._lru_cached_get_digit_correlation_data
             digit_entropy_distribution.cached_generate_sample = \
-                digit_entropy_distribution.cached_generate_sample
+                digit_entropy_distribution._lru_cached_generate_sample
 
 
 def clear_physical_cache() -> None:
