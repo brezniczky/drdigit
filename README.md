@@ -32,13 +32,22 @@ parallel sequences), it is possible to sort a data frame containing digit groups
 by probability, so then it is possible to inspect if there is any apparent
 sanity behind the doctoring.
 
-A couple of advice
-------------------
+A couple of hints
+-----------------
 
-* Handle results with care, there is always some uncertainity
-* Try to focus on interesting groups, this should yield much sharper results
+* Handle results with care, **there is always some uncertainity**
+* Try to **focus** on interesting groups, this should yield much sharper results
+* When committing **Kaggle** scripts, switch off the on-disk caching of tests 
+  before committing, e.g. via
+  
+    ```
+    import drdigit as drd
+    drd.set_option(physical_cache_path="")
+    ```
+  
+  You can find more about it via `help(drd.set_option)`.
 
-Quick start
+Quick start;
 -----------
 
 DrDigit can be installed using pip:
@@ -79,9 +88,24 @@ More examples to follow, for now you can have a look at the Kaggle notebook at
 https://www.kaggle.com/brezniczky/poland-2019-ep-elections-doctoring-quick-check
 or around
 https://github.com/brezniczky/ep_elections_2019_hun/blob/master/PL/
-for instance in the `process_data.py` file. 
+for instance in the `process_data.py` file.
+
+Some complicated (and - sorry, sometimes unreliabe/slightly outdated) details 
+about the considerations/methodology and future ideas can be found in the
+[Hungarian elections document](
+https://nbviewer.jupyter.org/github/brezniczky/ep_elections_2019_hun/blob/master/report.ipynb
+)
+
 
 Tests
 -----
 
-Coming soon ...
+The few tests that there are can be run by `pytest`. 
+
+For this, I would just use `virtualenvwrapper` and do something akin to
+
+    $ mkvirtualenv drdigit_test
+    $ pip install -r requirements/requirements_test.txt
+    $ pytest
+ 
+from the directory of the `drdigit` clone.
