@@ -47,7 +47,7 @@ A couple of hints
   
   You can find more about it via `help(drd.set_option)`.
 
-Quick start;
+Quick start
 -----------
 
 DrDigit can be installed using pip:
