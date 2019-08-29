@@ -32,7 +32,7 @@ def test_cdf_sample_size_equals_specified():
     assert len(cdf.get_sample()) == 100
 
 
-@pytest.mark.entropy_x
+@pytest.mark.entropy
 def test_accelerated_likelihood_cdf_approx_matches_prev_version():
     """
     The old version is based on generating number groups, and querying for their
