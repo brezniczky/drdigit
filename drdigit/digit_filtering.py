@@ -66,7 +66,109 @@ def get_feasible_rows(df: pd.DataFrame, min_value: int,
     return df[is_okay]
 
 
+def _filter_values(values: List[np.ndarray], min_value: int):
+    ans = [act_values >= min_value for act_values in values]
+    return np.logical_and.reduce(ans)
+
+
+def _filter_groups(group_ids: np.ndarray, min_len: int=None,
+                   values: np.ndarray=[], min_value: int=None):
+
+    if len(values) == 0:
+        # special case - nothing to do in this respect
+        min_value = None
+
+    df = pd.DataFrame(dict(id=group_ids))
+    if min_value:
+        df["value"] = np.amin(values, axis=0)
+
+    aggregation_dict = {}
+    if min_len:
+        aggregation_dict["id"] = len
+    if min_value:
+        aggregation_dict["value"] = min
+
+    df = df.groupby(["id"]).aggregate(aggregation_dict)
+
+    v = []
+    if min_len:
+        v.append(df["id"] >= min_len)
+    if min_value:
+        v.append(df["value"] >= min_value)
+
+    groups = df[np.logical_and.reduce(v)].index
+
+    return np.isin(group_ids, groups)
+
+
+def filter(group_ids: np.ndarray=None,
+           values: List[np.ndarray]=None,
+           entire_groups=False,
+           min_value: int=None,
+           min_group_size: int=None) -> np.ndarray:
+    """
+    :param group_ids: Group id values (~ contents of a 'column').
+    :param values: An array-like of arrays of (scalar) values to be filtered.
+        Each should be as long as the group_ids (~ each is a 'column').
+    :param min_value: Minimum value to expect from any item (row or group)
+        passing the filter in the values.
+    :param min_group_size: Minimum group length.
+    :param entire_groups: Whether groups partly matching the conditions
+        (value >= min_value), i.e. not for all rows, are to be excluded.
+    :return: The filter (one boolean for each 'row', i.e. a 'column').
+    """
+    ans = []
+
+    if values is None:
+        values = []
+
+    if entire_groups:
+        return _filter_groups(group_ids, min_group_size, values, min_value)
+
+    if min_group_size:
+        ans.append(_filter_groups(group_ids, min_group_size))
+    if min_value:
+        ans.append(_filter_values(values, min_value))
+        
+    return np.logical_and.reduce(ans)
+
+
+def filter_df(df: pd.DataFrame,
+              group_column: str=None,
+              value_columns: List[str]=None,
+              min_value: int=None,
+              min_group_size: int=None,
+              entire_groups=False) -> pd.DataFrame:
+    """
+    Convenience wrapper around the filter() function to apply its concepts to a
+    data frame.
+    See also: filter()
+
+    :param df: Data frame to be filtered.
+    :param group_column: Column containing group ids.
+    :param value_columns: Names of columns containing values. Use it in 
+        conjunction with the min_value argument.  
+    :param min_value: Minimum value to expect from any item (row or group) 
+        passing the filter in the value columns.
+    :param min_group_size: Minimum group length.
+    :param entire_groups: Whether groups partly matching the conditions
+        (value >= min_value), i.e. not for all rows, are to be excluded.
+    :return: The filtered data frame.
+    """
+    group_ids = df[group_column] if group_column is not None else None
+    values = ([df[value_column] for value_column in value_columns]
+              if value_columns is not None
+              else None)
+    f = filter(group_ids=group_ids, values=values,
+               entire_groups=entire_groups, min_value=min_value,
+               min_group_size=min_group_size) 
+    return df[f]
+
+
 # def get_feasible_subseries(arr, min_votes):
 #     # TODO: here's a one (0.5?) off error, well done ;) it goes -5 to 4 - fix it
 #     arr = arr[arr >= (min_votes - 5) + np.random.choice(range(10), len(arr))]
 #     return arr
+
+
+# if __name__ == "__main__":

@@ -12,7 +12,8 @@ from .digit_entropy_distribution import (
     get_entropy, get_entr_cdf_fun, prob_of_entr, LogLikelihoodDigitGroupEntropyTest,
     LodigeTest,
 )
-from .digit_filtering import get_feasible_groups, get_feasible_rows
+from .digit_filtering import (get_feasible_groups, get_feasible_rows,
+                              filter, filter_df)
 from .scoring import get_group_scores
 from .fingerprint_plots import (plot_fingerprint, plot_animated_fingerprints,
                                 plot_explanatory_fingerprint_responses)
@@ -39,6 +40,8 @@ __all__ = (
     "prob_of_entr",
     "LogLikelihoodDigitGroupEntropyTest",
     "LodigeTest",
+    "filter",
+    "filter_df",
     "get_feasible_groups",
     "get_feasible_rows",
     "get_group_scores"
