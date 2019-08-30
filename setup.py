@@ -22,7 +22,9 @@ setuptools.setup(
         "Topic :: Scientific/Engineering"
     ],
     install_requires=[
+        "attrs==19.1.0",
         "cycler>=0.10.0",
+        "deprecation==2.0.7",
         "joblib>=0.13.2",
         "kiwisolver>=1.1.0",
         "matplotlib>=3.0.3",

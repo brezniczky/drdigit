@@ -2,6 +2,7 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 from typing import List
+from deprecation import deprecated
 
 
 def _digit_noise_series(n: int) -> np.ndarray:
@@ -22,7 +23,8 @@ def _digit_noise_series(n: int) -> np.ndarray:
     return np.random.choice(range(10), n) - 4.5
 
 
-# TODO: generalize: min_n_wards -> min_group_len; min_votes -> min_value
+@deprecated(deprecated_in="0.0.12", removed_in="0.1.0",
+            details="Please use the filter and filter_df functions instead.")
 def get_feasible_groups(df: pd.DataFrame, min_n_wards: int, min_votes: int,
                         value_colname: str="Fidesz",
                         group_colname: str="Telepules",
@@ -44,6 +46,8 @@ def get_feasible_groups(df: pd.DataFrame, min_n_wards: int, min_votes: int,
                    (vote_mins >= min_votes)][group_colname]
 
 
+@deprecated(deprecated_in="0.0.12", removed_in="0.1.0",
+            details="Please use the filter and filter_df functions instead.")
 def get_feasible_rows(df: pd.DataFrame, min_value: int,
                       min_value_col_idxs: List[int],
                       smooth_ld_selectivity: bool=True) -> pd.DataFrame:
