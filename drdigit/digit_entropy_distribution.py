@@ -436,7 +436,7 @@ class LogLikelihoodDigitGroupEntropyTest():
         return list(zip(starts, ends))
 
     def __init__(self,
-                 digits: int, group_ids: List[Any], bottom_n: int,
+                 digits: List[int], group_ids: List[Any], bottom_n: int,
                  ll_iterations: int=_DEFAULT_LL_ITERATIONS,
                  ll_seed: int=_DEFAULT_LL_SEED,
                  pe_iterations: int=_DEFAULT_PE_ITERATIONS,
