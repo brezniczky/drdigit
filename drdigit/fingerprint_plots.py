@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.axes import Axes
 import matplotlib.ticker as mtick
+import scipy.stats as st
 from typing import List
 
 
@@ -14,11 +15,65 @@ def _get_full_filename(fingerprint_dir: str, filename: str):
     return full_filename
 
 
+def _gaussian_kde_smoothed_points(
+    x, y,
+    xmin, xmax, nx,
+    ymin, ymax, ny,
+    weights=None
+):
+    # based on
+    # https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+    # X, Y = np.mgrid([xmin:xmax:(nx)j, ymin:ymax:(ny)j])
+    X, Y = np.mgrid[xmin:xmax:(nx)*1j, ymin:ymax:(ny)*1j]
+    positions = np.vstack([X.ravel(), Y.ravel()])
+    values = np.vstack([x, y])
+    kernel = st.gaussian_kde(values, weights=weights)
+    Z = np.reshape(kernel(positions).T, X.shape)
+    return Z
+
+
+def _plot_smoothed_hist_2d(x, y, weights=None, axes=None):
+    # TODO: add norm_to_unit=False?
+    new_plot = axes is None
+    if not new_plot:
+        dest = axes
+    else:
+        _, dest = plt.subplots(figsize=[8, 8])
+
+    try:
+        x = np.array(x)
+        y = np.array(y)
+        weights = np.array(weights)
+
+        xmin, ymin = 0, 0
+        xmax, ymax = 1, 1
+
+        Z = _gaussian_kde_smoothed_points(
+            x, y,
+            xmin, xmax, 100,
+            ymin, ymax, 100,
+            weights=weights
+        )
+
+        # some alternative color maps to consider: magma, ocean, bone, coolwarm
+        dest.imshow(
+            np.rot90(Z), cmap="viridis",
+            extent=[xmin, xmax, ymin, ymax]
+        )
+
+        if new_plot:
+            plt.show()
+    finally:
+        if new_plot:
+            plt.close()
+
+
 def plot_fingerprint(party_votes: List[int], valid_votes: List[int],
                      registered_voters: List[int],  title: str,
                      filename: str=None, weighted: bool=True,
                      zoom_onto: bool=False, fingerprint_dir: str="",
-                     quiet: bool=False, axes: Axes=None):
+                     quiet: bool=False, axes: Axes=None,
+                     use_kde: bool=True):
     """
     Plot electoral fingerprint (a 2D histogram).
     Originally recommended to be used in conjunction with the winner party.
@@ -33,14 +88,22 @@ def plot_fingerprint(party_votes: List[int], valid_votes: List[int],
     :param weighted: Whether to use the number of votes won as a weight on the
         histogram.
     :param zoom_onto: Boolean, allows to magnify the plot by a factor of 5/2
-        over the y axis, vote proportion received.
+        over the y axis (vote share).
     :param fingerprint_dir: Directory to save the fingerprint plot to.
     :param quiet: Whether to show the resulting plot, False prevents it.
     :param axes: MatPlotLib  axes to plot onto. If left as None, a new plot will
         be generated.
+    :param use_kde: Whether to use a default (Gaussian) kernel density
+        estimation to smooth the plot. See scipy.stats.gaussian_kde for more.
+        No finer grain control is available over the parameters at the minute.
     :return: None
     """
+    # TODO: zooming in the KDE case
     bins = [np.arange(0, 1, 0.01), np.arange(0, 1, 0.01)]
+    party_votes = np.array(party_votes)
+    valid_votes = np.array(valid_votes)
+    registered_voters = np.array(registered_voters)
+
     if zoom_onto:
         bins[1] = 0.4 * bins[1]
 
@@ -52,13 +115,22 @@ def plot_fingerprint(party_votes: List[int], valid_votes: List[int],
         _, dest = plt.subplots()
 
     try:
-        dest.hist2d(
-            # winner_votes / registered_voters,  # TODO: or valid_votes?
-            valid_votes / registered_voters,
-            party_votes / valid_votes,  # TODO: or valid_votes?
-            bins=bins,
-            weights=weights
-        )
+        # mainly for the KDE case, which does not tolerate NaNs, but neither is
+        # the other case less correct if NaNs are removed, so...
+        is_included = valid_votes != 0
+        included_valid_votes = valid_votes[is_included]
+        x = included_valid_votes / registered_voters[is_included]
+        y = party_votes[is_included] / included_valid_votes
+        included_weights = weights[is_included]
+
+        if use_kde:
+            _plot_smoothed_hist_2d(x, y, weights=included_weights, axes=dest)
+        else:
+            dest.hist2d(
+                x, y,
+                bins=bins,
+                weights=weights
+            )
         dest.set_title(title)
 
         dest.set_xlabel("Turnout")
@@ -207,3 +279,16 @@ def plot_animated_fingerprints(party_votes: List[int],
         anim.save(full_filename, dpi=80, writer='imagemagick')
     if not quiet:
         plt.show()
+
+
+if __name__ == "__main__":
+    rv = np.random.uniform(20, 40, 300)
+    vv = rv * np.random.uniform(0.6, 0.8, 300)
+    pv = vv * np.random.uniform(0.6, 0.7, 300)
+    plot_fingerprint(
+        party_votes=pv,
+        valid_votes=vv,
+        registered_voters=rv,
+        title="title1",
+        use_kde=True,
+    )
