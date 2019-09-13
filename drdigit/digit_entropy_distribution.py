@@ -55,7 +55,7 @@ def _uncached_ref_generate_sample(n_wards: int,
                                   seed: int=_DEFAULT_SEED,
                                   iterations: int=_DEFAULT_ITERATIONS,
                                   quiet: bool=False) -> np.ndarray:
-    """ Simple, deprecated implementation, functioning as a reference, 
+    """ Simple, deprecated implementation, functioning as a reference,
         speed up is below """
     np.random.seed(seed)
     entrs = []
@@ -542,55 +542,3 @@ class LogLikelihoodDigitGroupEntropyTest():
 
 """ Short name for now... """
 LodigeTest = LogLikelihoodDigitGroupEntropyTest
-
-
-if __name__ == "__main__":
-    # TODO: of course move this to a test suite someday
-    test()
-
-    # print(prob_of_entr(47, 2.1485))
-    # expect ~ 0.133 (got with seed=1234) depending on the seed
-    test = LodigeTest(
-        [1] * 8 + [2] * 4, [1] * 12, 10
-    )
-    print(test.p)
-    test = LodigeTest(
-        list(range(10)), [10] * 10, 10
-    )
-    print(test.p)
-    test = LodigeTest(
-        list(range(5)) + [1] * 5, [10] * 10, 10
-    )
-    print(test.p)
-
-
-"""
-In [117]:
-f2 = get_cdf_fun(200)
-ys2 = np.array([f2(x) for x in xs])
-xs2 = xs[ys2 < 0.5]
-ys2 = ys2[ys2 < 0.5]
-plt.plot(xs2, np.log(ys2))
-plt.show()
-
-f2 = get_cdf_fun(100)
-ys2 = np.array([f2(x) for x in xs])
-xs2 = xs[ys2 < 0.5]
-ys2 = ys2[ys2 < 0.5]
-plt.plot(xs2, np.log(ys2))
-plt.show()
-
-f2 = get_cdf_fun(500, iterations=50000)
-ys2 = np.array([f2(x) for x in xs])
-xs2 = xs[ys2 < 0.5]
-ys2 = ys2[ys2 < 0.5]
-plt.plot(xs2, np.log(ys2))
-plt.show()
-
-
-TODO: left tail apparently (and as conjectured from
-early stage analytical work) could be approximated by
-an exponential form.
-Then we could estimate probability of outlying
-extremities based on that.
-"""
