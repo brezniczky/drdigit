@@ -106,28 +106,3 @@ def plot_party_vote_by_digit_relationships(df, party="Fidesz", ref_digit=7,
     plt.tight_layout()
     plt.subplots_adjust(top=0.875)
     plt.show()
-
-
-if __name__ == "__main__":
-    from preprocessing import get_preprocessed_data
-    df = get_preprocessed_data()
-    # plot_party_vote_by_digit_relationships(df, "Fidesz", max_votes=600)
-    # plot_party_vote_by_digit_relationships(df, "DK", max_votes=600)
-    # plot_party_vote_by_digit_relationships(df, "Momentum", max_votes=600)
-
-    plot_party_vote_by_digit_relationships(df, "Fidesz", max_votes=600,
-                                           ref_digit=USE_MEAN_DIGIT_GROUP,
-                                           n_bins=60)
-    plot_party_vote_by_digit_relationships(df, "DK", max_votes=600,
-                                           ref_digit=USE_MEAN_DIGIT_GROUP,
-                                           n_bins=60)
-    plot_party_vote_by_digit_relationships(df, "Momentum", max_votes=600,
-                                           ref_digit=USE_MEAN_DIGIT_GROUP,
-                                           n_bins=60)
-
-    # plot_party_vote_by_digit_relationships(df, "Fidesz", max_votes=600, ref_digit=1)
-    # plot_party_vote_by_digit_relationships(df, "DK", max_votes=600, ref_digit=1)
-    # plot_party_vote_by_digit_relationships(df, "Fidesz", max_votes=600, ref_digit=0)
-    # plot_party_vote_by_digit_relationships(df, "DK", max_votes=600, ref_digit=0)
-    # plot_party_vote_by_digit_relationships(df, "Ervenyes", max_votes=600, ref_digit=0)
-    # plot_party_vote_by_digit_relationships(df, "Nevjegyzekben", max_votes=600, ref_digit=0)
