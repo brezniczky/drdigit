@@ -193,7 +193,6 @@ def plot_fingerprint(party_votes: List[int], valid_votes: List[int],
     # TODO: zooming in the KDE case
 
     assert filename is None or axes is None
-    assert legend_
 
     if axes is not None:
         dest = axes
