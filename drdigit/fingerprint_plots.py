@@ -87,6 +87,33 @@ def _get_kde_smoothed_2d_histogram(x: np.ndarray, y: np.ndarray,
     return Z
 
 
+def _normalize_hist_2d(hist: np.ndarray):
+    shape = hist.shape
+    as_vec = hist.reshape(shape[0] * shape[1])
+    max_v = max(as_vec)
+    min_v = min(as_vec)
+    if min_v != 0:  # this will typically be zero
+        hist = hist - min_v
+    if max_v != min_v:
+        hist = hist / (max_v - min_v)
+    return hist
+
+
+def _joint_normalize_hist_2ds(hists: List[np.ndarray]) -> List[np.ndarray]:
+    as_vecs = [h.reshape(np.prod(h.shape)) for h in hists]
+    max_v = max([max(v) for v in as_vecs])
+    min_v = min([min(v) for v in as_vecs])
+    if max_v == min_v and min_v == 0:
+        return hists
+
+    if min_v != 0:  # this will typically be zero
+        hists = [h - min_v for h in hists]
+    if max_v != min_v:
+        hists = [h / (max_v - min_v) for h in hists]
+
+    return hists
+
+
 def _get_histogram_2d(x: np.ndarray, y: np.ndarray, weights: np.ndarray,
                       bins: Tuple[List[float], List[float]],
                       use_kde: bool) -> Tuple[np.ndarray]:
@@ -104,15 +131,7 @@ def _get_histogram_2d(x: np.ndarray, y: np.ndarray, weights: np.ndarray,
     # hand implemented to avoid dependence on scikit-learn as would be suggested
     # in
     # https://stackoverflow.com/questions/21030391/how-to-normalize-an-array-in-numpy
-
-    old_shape = ans.shape
-    as_vec = ans.reshape(old_shape[0] * old_shape[1])
-    max_v = max(as_vec)
-    min_v = min(as_vec)
-    ans = (ans - min_v)
-    if max_v != min_v:
-        ans = ans / (max_v - min_v)
-    ans.reshape(old_shape)
+    ans = _normalize_hist_2d(ans)
     return ans
 
 
@@ -247,6 +266,43 @@ def _apply_legend(dest: Axes, legend_strings: List[str]):
     dest.legend(handles=[blue_patch, red_patch], loc=1,bbox_to_anchor=bbox)
 
 
+def _histogram_asym_diff(h1: np.ndarray, h2: np.ndarray,
+                         normalize: bool) -> Tuple[np.ndarray, np.ndarray]:
+    """ This is a "probabilistic-style" diff and is likely deprecated """
+    h1, h2 = (h1 * (1 - h2), h2 * (1 - h1))
+    if normalize:
+        h1, h2 = (_normalize_hist_2d(h1), _normalize_hist_2d(h2))
+    return h1, h2
+
+
+def _hist_sum(h: np.ndarray):
+    return sum(h.reshape(np.prod(h.shape)))
+
+
+def _histogram_asym_diff_in_votes(h1: np.ndarray, h2: np.ndarray,
+                                  sum_votes1: float, sum_votes2: float,
+                                  normalize: bool) -> Tuple[List[np.ndarray],
+                                                            List[float]]:
+
+    # utilize votes as invariant quantities
+    h1 = h1 * sum_votes1 / _hist_sum(h1)
+    h2 = h2 * sum_votes2 / _hist_sum(h2)
+
+    diff = h1 - h2
+
+    h1 = diff.copy()
+    h1[h1 < 0] = 0
+    h2 = -diff
+    h2[h2 < 0] = 0
+    # the last (2nd) one need not be calculated, as the "total of subtotals" is
+    # the "total of totals"
+    new_sum1 = _hist_sum(h1)
+    if normalize:
+        # joint normalization allows for mamtaining comparability
+        h1, h2 = _joint_normalize_hist_2ds([h1, h2])
+    return [h1, h2], [new_sum1, -((sum_votes1 - sum_votes2) - new_sum1)]
+
+
 def plot_overlaid_fingerprints(party_votes: List[List[int]],
                                valid_votes: List[List[int]],
                                registered_voters: List[List[int]],
@@ -256,7 +312,9 @@ def plot_overlaid_fingerprints(party_votes: List[List[int]],
                                quiet: bool=False, axes: Axes=None,
                                comparison_mode="asym_diff",
                                use_kde: bool=True,
-                               legend_strings=None):
+                               legend_strings=None,
+                               normalize_diffs=True) -> \
+        Tuple[List[np.ndarray], List[float], List[float]]:
     """
     Plot multiple (currently this must be 2, i.e. k = 2) electoral fingerprints
     alpha blended onto the same chart, so that they can be visually compared in
@@ -288,14 +346,17 @@ def plot_overlaid_fingerprints(party_votes: List[List[int]],
         (RGB = (1.0, 0.5, 0.0) vs (0, 0.5, 1.0)).
 
         "union" is a simple overlay (blue+red turning white where overlaps,
-        "asym_diff" subtracts the intersection from the 'bitplanes'
-        (in intensity: y1, y2 = (y1 * (1 - y2), y2 * (1 - y1)).
+        "asym_diff" is a simple difference of the interpolated votes per cell,
+            positive being left in the first, (absolutes of the) negative values
+            in the second histogram bitplane.
     :param use_kde: Whether to use a default (Gaussian) kernel density
         estimation to smooth the plot. See scipy.stats.gaussian_kde for more.
         No finer grain control is available over the parameters at the minute.
     :param legend_strings: Strings to display in the optional legend for each
         fingerprint color, in the order they are listed in the vote data lists.
-    :return: None
+    :return: A tuple of the (weighted, normalized) list of histograms, a
+        list of how many party votes these histograms represent, and a list of
+        the party vote percentages per each histogram.
     """
 
     assert len(party_votes) == 2
@@ -312,7 +373,9 @@ def plot_overlaid_fingerprints(party_votes: List[List[int]],
 
     try:
         hists = []
+        vote_shares = []
         for act_party_votes, act_valid_votes, act_registered_voters in zipped:
+            vote_shares.append(sum(act_party_votes) / sum(act_valid_votes))
             # get abstract histogram input
             x, y, w, bins = _get_2d_hist_input(act_party_votes, act_valid_votes,
                                                act_registered_voters,
@@ -320,16 +383,23 @@ def plot_overlaid_fingerprints(party_votes: List[List[int]],
             # calculate histogram values
             hist = _get_histogram_2d(x, y, w, bins, use_kde)
 
-            # plot the values
             hists.append(hist)
 
+        sum_votes = [sum(party_votes[0]), sum(party_votes[1])]
         if comparison_mode == "asym_diff":
-            hists[0], hists[1] = (
-                hists[0] * (1 - hists[1]),
-                hists[1] * (1 - hists[0]),
+            # dens = [sum_votes[k] / _hist_sum(hists[k])
+            #         for k in range(len(sum_votes))]
+            # hists[0], hists[1] = _histogram_asym_diff(hists[0], hists[1],
+            #                                           normalize_diffs)
+            # sum_votes = [dens[k] * _hist_sum(hists[k])
+            #              for k in range(len(hists))]
+
+            # joint normalized (i.e. visually comparable) histogram of the
+            # difference of vote distribution histograms
+            hists, sum_votes = _histogram_asym_diff_in_votes(
+                hists[0], hists[1], sum_votes[0], sum_votes[1], normalize_diffs
             )
 
-        # set up the axes
         _plot_comparative(hists[0], hists[1], dest)
         _apply_electoral_fingerprint_axes(dest)
         if title is not None:
@@ -345,6 +415,8 @@ def plot_overlaid_fingerprints(party_votes: List[List[int]],
     finally:
         if axes is None:
             plt.close()
+
+    return hists, sum_votes, vote_shares
 
 
 def plot_explanatory_fingerprint_responses(filename: str=None,
