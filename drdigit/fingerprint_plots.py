@@ -266,15 +266,6 @@ def _apply_legend(dest: Axes, legend_strings: List[str]):
     dest.legend(handles=[blue_patch, red_patch], loc=1,bbox_to_anchor=bbox)
 
 
-def _histogram_asym_diff(h1: np.ndarray, h2: np.ndarray,
-                         normalize: bool) -> Tuple[np.ndarray, np.ndarray]:
-    """ This is a "probabilistic-style" diff and is likely deprecated """
-    h1, h2 = (h1 * (1 - h2), h2 * (1 - h1))
-    if normalize:
-        h1, h2 = (_normalize_hist_2d(h1), _normalize_hist_2d(h2))
-    return h1, h2
-
-
 def _hist_sum(h: np.ndarray):
     return sum(h.reshape(np.prod(h.shape)))
 
@@ -387,13 +378,6 @@ def plot_overlaid_fingerprints(party_votes: List[List[int]],
 
         sum_votes = [sum(party_votes[0]), sum(party_votes[1])]
         if comparison_mode == "asym_diff":
-            # dens = [sum_votes[k] / _hist_sum(hists[k])
-            #         for k in range(len(sum_votes))]
-            # hists[0], hists[1] = _histogram_asym_diff(hists[0], hists[1],
-            #                                           normalize_diffs)
-            # sum_votes = [dens[k] * _hist_sum(hists[k])
-            #              for k in range(len(hists))]
-
             # joint normalized (i.e. visually comparable) histogram of the
             # difference of vote distribution histograms
             hists, sum_votes = _histogram_asym_diff_in_votes(
