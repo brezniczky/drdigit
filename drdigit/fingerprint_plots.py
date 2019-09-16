@@ -404,7 +404,8 @@ def plot_overlaid_fingerprints(party_votes: List[List[int]],
 
 
 def plot_explanatory_fingerprint_responses(filename: str=None,
-                                           quiet: bool=False, fontsize=12):
+                                           quiet: bool=False,
+                                           fontsize=12) -> None:
     """
     Plot a fingerprint explanation chart, optionally save/don't show it.
     Election fingerprints may be difficult to take in at first.
@@ -457,6 +458,74 @@ def plot_explanatory_fingerprint_responses(filename: str=None,
                 ax.arrow(0.5 + dx / 2, 0.5 + dy / 2, dx, dy,
                          head_width=0.025, head_length=0.025)
 
+        if filename is not None:
+            plt.savefig(filename)
+            if not quiet:
+                print("plot saved as %s" % filename)
+        if not quiet:
+            plt.show()
+    finally:
+        plt.close()
+
+
+def plot_explanatory_fingerprint_dynamics(filename: str=None,
+                                          quiet: bool=False) -> None:
+    """
+    Paint plots which demonstrate how a point of an electoral fingerprint plot
+    exactly moves when impacted by e.g. removal/addition/replacement of votes.
+
+    This should give an impression of what certain shapes of patches might
+    represent.
+
+    :param filename: The figure is saved under this filename as an image if
+        specified.
+    :param quiet: Whether to avoid showing the plot.
+    :return:
+    """
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2)
+    try:
+        _apply_electoral_fingerprint_axes(ax1)
+        x = np.arange(0.01, 1, 0.01)
+        for vote_share in np.arange(0.05, 0.95, 0.1):
+            y = vote_share / x
+            is_ok = y < 1
+            ax1.plot(x[is_ok], y[is_ok], color="blue")
+
+        ax1.set_title("Fixed party votes, others' vary")
+
+        r = 1E+6
+        for o in 1E+6 * np.arange(0.1, 0.9, 0.1):
+            p = np.arange(0, 100, 0.01) * o
+            is_ok = (p + o) <= r
+
+            vote_share = p / (p + o)
+            turnout = (p + o) / r
+            ax2.plot(turnout[is_ok], vote_share[is_ok], color="blue")
+        _apply_electoral_fingerprint_axes(ax2)
+        ax2.set_title("Others' fixed, the party's votes vary")
+
+        r = 1E+6
+        for v in r * np.arange(0.1, 1.1, 0.2):
+            t = np.arange(0, 1, 0.01)  # parameter
+            # p + o = v
+            p = t * v
+            o = (1 - t) * v
+
+            is_ok = (p + o) <= r
+
+            vote_share = p / v
+            turnout = (o + p) / r   # to get a vector
+            ax3.plot(turnout[is_ok], vote_share[is_ok], color="blue")
+        _apply_electoral_fingerprint_axes(ax3)
+        ax3.set_title("Party's votes swapped with others'")
+
+        for vote_share in np.arange(0, 1.1, 0.2):
+            turnout = np.arange(0, 1.01, 0.01)  # parameter
+            ax4.plot(turnout, [vote_share] * len(turnout), color="blue")
+        _apply_electoral_fingerprint_axes(ax3)
+        ax4.set_title("Party equally popular everywhere")
+
+        plt.tight_layout()
         if filename is not None:
             plt.savefig(filename)
             if not quiet:
