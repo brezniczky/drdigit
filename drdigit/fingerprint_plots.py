@@ -522,7 +522,7 @@ def plot_explanatory_fingerprint_dynamics(filename: str=None,
         for vote_share in np.arange(0, 1.1, 0.2):
             turnout = np.arange(0, 1.01, 0.01)  # parameter
             ax4.plot(turnout, [vote_share] * len(turnout), color="blue")
-        _apply_electoral_fingerprint_axes(ax3)
+        _apply_electoral_fingerprint_axes(ax4)
         ax4.set_title("Party equally popular everywhere")
 
         plt.tight_layout()
